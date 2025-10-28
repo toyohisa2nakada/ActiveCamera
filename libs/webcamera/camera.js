@@ -261,7 +261,9 @@ export const camera = {
             video_controller_elem.appendChild([
                 document.createElement("canvas"),
                 e => e.id = "video_canvas",
-                e => e.style.zIndex = 1,
+                // test_waterSurfaceModuleのためにzIndexの設定を解除、ActiveCameraで試していないので、戻す可能性あり
+                // 2025.10.28
+                // e => e.style.zIndex = 1,
                 e => e.style.position = "absolute",
                 e => e.style.display = "block",
             ].a2e());
