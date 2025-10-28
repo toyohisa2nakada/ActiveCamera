@@ -7,6 +7,11 @@
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
 
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
         #marker_receiver_canvas {
             position: absolute;
             left: 0;
@@ -28,9 +33,9 @@
 </head>
 
 <body>
+    <div id="video_controller"></div>
     <water-surface-canvas></water-surface-canvas>
     <canvas id="marker_receiver_canvas"></canvas>
-    <div id="video_controller"></div>
 
     <script type="module">
         import "./waterSurfaceModule.js";
@@ -40,13 +45,15 @@
         img.src = "./images/iu_front.png";
         img.onload = () => {
             water_surface_elem.init({ width: img.width, height: img.height });
-            water_surface_elem.getContext().drawImage(img, 0, 0, img.width, img.height)
+            water_surface_elem.getContext().drawImage(img, 0, 0, img.width, img.height);
+            // water_surface_elem.getContext().clearRect(0, 0, img.width, img.height);
         }
 
         const marker_canvas_elem = document.querySelector("#marker_receiver_canvas");
         ({ width: marker_canvas_elem.width, height: marker_canvas_elem.height } = marker_canvas_elem.getBoundingClientRect());
         ["pointerenter", "pointermove", "pointerleave"].forEach(name => {
             marker_canvas_elem.addEventListener(name, (ev) => {
+                // console.log(name, ev)
                 water_surface_elem._onMouseMove(ev)
             });
         });
@@ -60,14 +67,17 @@
         marker_receiver.init({ canvas_elem: marker_canvas_elem });
 
         import { camera } from "../libs/webcamera/camera.js";
-        // await camera.init({
-        //     video_controller_elem: document.getElementById("video_controller"),
-        //     video_resolution: [1024, 768],
-        //     recognition_canvas_resolution: [320, 180],
-        // });
+        await camera.init({
+            video_controller_elem: document.getElementById("video_controller"),
+            video_resolution: [1024, 768],
+            recognition_canvas_resolution: [320, 180],
+        });
 
         const render = () => {
-            // camera.render();
+            camera.render();
+            const recognize_canvas = camera.canvas2_bak();
+            water_surface_elem.getContext().drawImage(recognize_canvas[0], 300, 300, recognize_canvas[1].width, recognize_canvas[1].height)
+
             marker_receiver.render();
             requestAnimationFrame(render);
         }
