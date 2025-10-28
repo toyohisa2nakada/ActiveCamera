@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="ja">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="user-scalable=no">
+    <script src="Colors.js"></script>
+</head>
+
+<!--
+    グラフに使用する識別しやすい「色」を自動で作成するために、Lab空間を作成した。
+    このLab空間において、L*(lightness)を固定して、a*b*軸平面上で位置を回転させて色を選択する、というアイディアであったが、
+    L*をも変化させないと多様な色を表現することができないため、一旦、アルゴリズムとしては中断している。
+
+    これ以外にも、固定値で識別しやすい色を取得する方法もありそう。
+    https://contents-open.hatenablog.com/entry/2021/08/19/231157
+-->
+
+<body>
+    <h1>L*a*b*色空間の表示</h1>
+    <div>
+        L*(lightness), a*(赤/マゼンタ⇔緑 軸), b*(黄⇔青 軸)の3軸の空間をL*軸の上から原点を見る視点。
+        画面の左右がa*軸、上下がb*軸。
+        L*の数値を上下すると視点位置が上下し、1周中の色の数を変更をすると画面に表示される色の数が増える。
+    </div>
+    <div style="margin-top:10px;">
+        <span>
+            <label for="lightness">L* (左右矢印キーで変更) (0&lt;=L*&lt;=1)</label>
+            <input type="range" id="lightness" min="0" max="1" step="0.1">
+            <span id="lightness_value"></span>
+        </span>
+        <span style="margin-left:20px;">
+            <label for="n_colors">1周中の色の数 (上下矢印キーで変更) (1&lt;=n&lt;=120)</label>
+            <input type="number" id="n_colors" min="1" max="120">
+        </span>
+    </div>
+    <canvas id="canvas" width="600" height="600"></canvas>
+</body>
+<script type="module">
+    window.dispatchEvent(new Event("resize"));
+    document.addEventListener("touchmove", (e) => { e.preventDefault() }, { passive: false });
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const canvas_wh = [canvas.width, canvas.height];
+
+    const lightness_el = document.getElementById("lightness");
+    const lightness_value_el = document.getElementById("lightness_value");
+    const n_colors_el = document.getElementById("n_colors");
+
+    // initial values
+    lightness_el.value = 0.6;
+    n_colors_el.value = 60;
+    const circle_size = [6, 6];
+    const l_range = [...Array(11).keys()].map(e => e / 10).filter(e => e >= 0.1 && e <= 1.0);
+
+    const add_n_colors_value = (v)=>{
+        set_n_colors_value(Number(n_colors_el.value) + (v ?? 0));
+    }
+    const set_n_colors_value = (v)=>{
+        n_colors_el.value = Math.max(1, Math.min(120, v));
+    }
+
+    // 画素及びキーボード処理
+    n_colors_el.addEventListener("change", e => {
+        update();
+    });
+    document.body.addEventListener("keydown", (e) => {
+        //キーボード操作対象のエレメントにフォーカスが当たっている場合、
+        //デフォルトの動作とここでの動作が重複して2回の処理が行われないように、ここでは処理をしない。
+        if ([lightness_el, n_colors_el].some(e => e === document.activeElement)) {
+            return;
+        }
+        const li = { "ArrowRight": 0.1, "ArrowLeft": -0.1 };
+        lightness_el.value = Number(lightness_el.value) + (li[e.key] ?? 0);
+        const ni = { "ArrowUp": 1, "ArrowDown": -1 };
+        add_n_colors_value(ni[e.key]);
+        update();
+    });
+    lightness_el.addEventListener("change", () => { update() });
+
+    // スマホ用のイベント処理
+    const te = {};
+    te.set = function(e){
+        this[e.identifier] = {
+            p:[e.pageX,e.pageY],
+            l0:Number(lightness_el.value),
+            n0:Number(n_colors_el.value)
+        };
+    }
+    te.unset = function(e){
+        this[e.identifier] = undefined;
+    }
+    document.addEventListener("touchstart",e=>{
+        te.set(e.changedTouches[0]);
+    });
+    document.addEventListener("touchend",e=>{
+        te.unset(e.changedTouches[0]);
+    });
+    document.addEventListener("touchmove",e=>{
+        const t = e.changedTouches[0];
+        const dx = t.pageX - te[t.identifier].p[0];
+        const dy = t.pageY - te[t.identifier].p[1];
+        console.log("dx,dy",Math.round(dx/100),Math.round(dy/10)/100);
+        lightness_el.value = te[t.identifier].l0-Math.round(dy/10)/100;
+        set_n_colors_value(te[t.identifier].n0+Math.round(dx/10));
+        update();
+    });
+
+    // 中心位置の描画
+    const center = canvas_wh.map(e => e / 2);
+    ctx.beginPath();
+    ctx.ellipse(...center, 4, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const l0 = Math.min(...canvas_wh.map((e, i) => e - center[i])) * 0.9;
+
+    const update = () => {
+
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, ...canvas_wh);
+
+        const drad = Math.PI * 2 / n_colors_el.value;
+        const lightness = Number(lightness_el.value);
+        lightness_value_el.textContent = lightness;
+
+        l_range.forEach(li => {
+            const l = l0 * li;
+            for (let rad = 0; rad < Math.PI * 2; rad += drad) {
+                ctx.beginPath();
+                const lab = [lightness, li * Math.cos(rad), li * Math.sin(rad)];
+                const rgb_s = Colors.rgb_p2s(...Colors.lab2rgb(...lab));
+                // console.log(lab, "=>", rgb_s);
+                ctx.fillStyle = rgb_s;
+                ctx.ellipse(...center.map((e, i) => e + [Math.cos, Math.sin][i](rad) * l), ...circle_size, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+    }
+    update();
+</script>
+
+</html>
