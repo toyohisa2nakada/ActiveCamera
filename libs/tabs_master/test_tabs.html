@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="https://kit.fontawesome.com/13ddd76903.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <div id="tabs1"></div>
+
+    <div style="width:80%;">
+        <div id="tabs2"></div>
+    </div>
+    <button id="bt0">タブの動的追加</button>
+    <button id="bt1">タブの動的削除</button>
+
+</body>
+<script type="module">
+
+    import { createTabs } from "./tabs.mjs";
+    let tabs = undefined;
+    tabs = createTabs(document.getElementById("tabs1"));
+    [
+        ["使用方法", "createTabsメソッドにてタブを管理する変数（タブコントロールと呼ぶことにします）を取得します。そのタブコントロールのaddメソッドを呼び出して、タブを追加します。addメソッドの引数は、タブのタイトル、タブ内のコンテンツともElementの形式で指定してください。createTabsメソッドによりタブコントロールを複数作成することもできます。"],
+        ["制限事項", "<ul><li>画面の横幅が小さいと表示が崩れます。</li><li>画面表示後にタブを追加することはできますが、削除することはできません。</li><li>html内のscriptタグにはtype='module'を指定する必要があります。</li><li>importを使用しているためfile:プロトコルだとCORSエラーで動作しません。</li></ul>"],
+        ["参考", "The design and other structures are based on <a href='https://codepen.io/hamzadhamiya/pen/bltnA'>here</a>. Thank you very much."],
+    ].forEach(p => tabs.add(
+        [e => e.innerHTML = p[0]].reduce((a, e) => { e(a); return a; }, document.createElement("span")),
+        [e => e.innerHTML = p[1]].reduce((a, e) => { e(a); return a; }, document.createElement("span"))
+    ));
+    tabs = createTabs(document.getElementById("tabs2"));
+    [["準備", "タブコントロールを挿入するHTMLエレメントの作成、importによるtabs.mjsの読み込みなどです。このHTMLファイルを参考にしてみてください。"],
+    ["<span style='font-size:small;width:100%;'><i class='far fa-copy'></i> タブの動的追加</span>", "タブコントロールに新しいタブを追加します。</span>"]].forEach(p => tabs.add(
+        [e => e.innerHTML = p[0]].reduce((a, e) => { e(a); return a; }, document.createElement("span")),
+        [e => e.innerHTML = p[1]].reduce((a, e) => { e(a); return a; }, document.createElement("span"))
+    ));
+    document.querySelector("#bt0").addEventListener("click", e => {
+        const n = tabs.length() + 1;
+        [[`新規 ${n}`, `タブ内のコンテンツ ${n}`]].forEach(p => tabs.add(
+            [e => e.textContent = p[0]].reduce((a, e) => { e(a); return a; }, document.createElement("span")),
+            [e => e.textContent = p[1]].reduce((a, e) => { e(a); return a; }, document.createElement("span"))
+        ));
+    })
+    document.querySelector("#bt1").addEventListener("click", e => {
+        tabs.remove_from_name("タブの動的追加");
+    })
+</script>
+
+</html>
