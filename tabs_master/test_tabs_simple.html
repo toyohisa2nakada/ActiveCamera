@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+
+<head>
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <!-- タブ表示を行うエレメントを生成しておく。 -->
+    <div id="tabs1"></div>
+</body>
+<!-- scriptタグは type='module' とする。-->
+<script type="module">
+    // javascriptファイルの読み込み
+    import { createTabs } from "./tabs.mjs";
+    const tabs = createTabs(document.getElementById("tabs1"));
+
+    // 1つ目のタブを生成
+    const tab1 = { "title": document.createElement("span"), "content": document.createElement("span") };
+    tab1.title.innerText = "タブ1";
+    tab1.content.innerText = "タブ1の内容、ないよう、ナイヨウ、NAIYOU、ないよー😭、にゃいよー🐱";
+    tabs.add(tab1.title, tab1.content);
+
+    // 2つ目のタブを生成
+    const tab2 = { "title": document.createElement("span"), "content": document.createElement("span") };
+    tab2.title.innerText = "タブ2";
+    tab2.content.innerHTML = "<a href='https://qiita.com/'>qiita</a>";
+    tabs.add(tab2.title, tab2.content);
+</script>
+
+</html>
