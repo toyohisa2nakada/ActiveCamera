@@ -252,7 +252,9 @@ class WaterSurfaceCanvas extends HTMLElement {
                     // 描画メソッドの場合、実行後に画像データを更新
                     if (typeof value === 'function' &&
                         ['drawImage', 'fillRect', 'strokeRect', 'clearRect',
-                            'fillText', 'strokeText', 'putImageData'].includes(prop)) {
+                            'fillText', 'strokeText', 'putImageData',
+                            'beginPath', 'moveTo', 'lineTo', 'stroke',
+                            'save', 'restore'].includes(prop)) {
                         return function (...args) {
                             const result = value.apply(target, args);
                             self._updateOriginalImageData();

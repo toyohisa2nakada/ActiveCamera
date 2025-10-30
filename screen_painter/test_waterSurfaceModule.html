@@ -37,11 +37,14 @@
     <div id="video_controller"></div>
     <water-surface-canvas></water-surface-canvas>
     <canvas id="marker_receiver_canvas"></canvas>
+    <div id="stats"></div>
 
     <script type="module">
+        // 水面のcanvas
         import "./waterSurfaceModule.js";
         const water_surface_elem = document.querySelector("water-surface-canvas");
 
+        // iuの画像を表示
         const img = new Image();
         img.src = "./images/iu_front.png";
         img.onload = () => {
@@ -50,23 +53,29 @@
             // water_surface_elem.getContext().clearRect(0, 0, img.width, img.height);
         }
 
+        // screen painterのmarker
         const marker_canvas_elem = document.querySelector("#marker_receiver_canvas");
         ({ width: marker_canvas_elem.width, height: marker_canvas_elem.height } = marker_canvas_elem.getBoundingClientRect());
         ["pointerenter", "pointermove", "pointerleave"].forEach(name => {
             marker_canvas_elem.addEventListener(name, (ev) => {
                 // console.log(name, ev)
-                water_surface_elem._onMouseMove(ev)
+                // water_surface_elem._onMouseMove(ev)
             });
         });
         ["touchstart", "touchmove", "touchend"].forEach(name => {
             marker_canvas_elem.addEventListener(name, ev => {
                 // console.log(name, ev)
                 // water_surface_elem._onMouseMove(ev);
+                lines.add(ev.clientX, ev.clientY, ev.userData.color)
+                if (name === 'touchend') {
+                    lines.end(ev.userData.color)
+                }
             });
         });
         import { marker_receiver } from "./marker_receiver.mjs";
         marker_receiver.init({ canvas_elem: marker_canvas_elem });
 
+        // camera
         import { camera } from "../libs/webcamera/camera.js";
         await camera.init({
             video_controller_elem: document.getElementById("video_controller"),
@@ -74,6 +83,11 @@
             recognition_canvas_resolution: [320, 180],
         });
 
+        // 時間で消える線
+        import { TimedLineRegistry } from "../libs/TimedLineRegistry.js";
+        const lines = new TimedLineRegistry({ ctx: water_surface_elem.getContext(), life_ms: 5000 });
+
+        // ActiveCameraのミニ版
         import { CanvasData } from "../CanvasData.mjs";
         await CanvasData.import_modules();
         await CanvasData.init(camera.recognition_canvas());
@@ -84,27 +98,48 @@
         (await lil_gui_lib.init({ libs_backup_folder: "../libs_backup" })).set(gui);
         CanvasData.init_gui({ gui: gui });
 
+        // CanvasCellのセルの大きさ、背景差分のfactor比率を取得して、CanvasCellが赤で表示するセル情報だけを取得する。
+        const canvasCell_params = CanvasData.get_copied_all_params().filter(e => e.module_name === "CanvasCells")[0];
+        const cell_weight_limit = canvasCell_params.cell_h * canvasCell_params.cell_w * canvasCell_params.diffed_scene_weight;
+
+        // three.jsなどで使えるパフォーマンスモニター(オリジナルを少し修正している)
+        import { Stats } from "../libs/Stats.min.mjs";
+        const stats = Stats.customInit({ max_fps: 90, elem: document.getElementById("stats") });
 
         let prev_tm = Date.now();
         const render = async () => {
             const tm = Date.now();
             const dt = tm - prev_tm;
 
+            // ミニActiveCamera部分
             camera.render();
             const recognize_canvas = camera.canvas2_bak();
             CanvasData.set_output_canvas(recognize_canvas[0])
-            // CanvasData.set_output_canvas(camera.video_canvas())
             CanvasData.set_image(...recognize_canvas);
-            const effective_pixels = await CanvasData.filter();
             await CanvasData.recognize(dt);
             const output_data = await CanvasData.output();
-            // console.log(output_data)
 
+            // water surface部分
             water_surface_elem.getContext().drawImage(camera.video_canvas(), 0, 0, ...camera.video_canvas_wh())
+            const diffed_cells = (await CanvasData.get_viewpoint_factors()).filter(e => e[2] > cell_weight_limit);
+            diffed_cells.forEach(e => {
+                const ev = {
+                    clientX: camera.video_canvas().width * e[0] / recognize_canvas[1].width,
+                    clientY: camera.video_canvas().height * e[1] / recognize_canvas[1].height,
+                }
+                water_surface_elem._onMouseMove(ev)
+            })
 
+            // 時間で消える線の描画
+            lines.draw();
+
+            // フレームレート
+            stats.customUpdate(1000.0 / dt);
+
+            // marker描画
             marker_receiver.render();
-            requestAnimationFrame(render);
 
+            requestAnimationFrame(render);
             prev_tm = tm;
         }
         requestAnimationFrame(render);
