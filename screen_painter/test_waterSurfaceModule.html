@@ -30,6 +30,7 @@
 
     <script src="../libs/hammer.min.js"></script>
     <script src="../libs/Colors.js/Colors.js"></script>
+    <script src="../libs/TimeChecker.js"></script>
 </head>
 
 <body>
@@ -73,13 +74,38 @@
             recognition_canvas_resolution: [320, 180],
         });
 
-        const render = () => {
+        import { CanvasData } from "../CanvasData.mjs";
+        await CanvasData.import_modules();
+        await CanvasData.init(camera.recognition_canvas());
+        import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.17/+esm";
+        const gui = new GUI();
+        gui.close();
+        import { lil_gui_lib } from "../libs/lil_gui_lib.mjs";
+        (await lil_gui_lib.init({ libs_backup_folder: "../libs_backup" })).set(gui);
+        CanvasData.init_gui({ gui: gui });
+
+
+        let prev_tm = Date.now();
+        const render = async () => {
+            const tm = Date.now();
+            const dt = tm - prev_tm;
+
             camera.render();
             const recognize_canvas = camera.canvas2_bak();
-            water_surface_elem.getContext().drawImage(recognize_canvas[0], 300, 300, recognize_canvas[1].width, recognize_canvas[1].height)
+            CanvasData.set_output_canvas(recognize_canvas[0])
+            // CanvasData.set_output_canvas(camera.video_canvas())
+            CanvasData.set_image(...recognize_canvas);
+            const effective_pixels = await CanvasData.filter();
+            await CanvasData.recognize(dt);
+            const output_data = await CanvasData.output();
+            // console.log(output_data)
+
+            water_surface_elem.getContext().drawImage(camera.video_canvas(), 0, 0, ...camera.video_canvas_wh())
 
             marker_receiver.render();
             requestAnimationFrame(render);
+
+            prev_tm = tm;
         }
         requestAnimationFrame(render);
     </script>
