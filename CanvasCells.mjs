@@ -265,7 +265,7 @@ export const CanvasCells = {
         const factors = [
             ...diffed.map(c2pw_diff),
             ...scene_diffed.map(c2pw_scen),
-        ]
+        ];
         return factors;
     },
 
