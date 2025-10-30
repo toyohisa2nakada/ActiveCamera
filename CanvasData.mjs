@@ -5,12 +5,12 @@ export const CanvasData = {
 
     import_modules: async function () {
         const sets = [
-            [ // video_canvasのズーム、移動のテスト
-                "./TestCanvasZoomer.mjs",
-                e => e.TestCanvasZoomer,
-                "add_init",
-                "add_viewpoint_element",
-            ],
+            // [ // video_canvasのズーム、移動のテスト
+            //     "./TestCanvasZoomer.mjs",
+            //     e => e.TestCanvasZoomer,
+            //     "add_init",
+            //     "add_viewpoint_element",
+            // ],
 
             // [ //screen painterのテスト
             //     "./screen_painter/CanvasScreenPainter.mjs",
@@ -28,13 +28,13 @@ export const CanvasData = {
             //     "add_viewpoint_element",
             // ],
 
-            [ // Canvas上の認識範囲を制限する。
-                "./CanvasRegion.mjs",
-                e => e.CanvasRegion,
-                "add_init",
-                "add_filter",
-                "add_outputter",
-            ],
+            // [ // Canvas上の認識範囲を制限する。
+            //     "./CanvasRegion.mjs",
+            //     e => e.CanvasRegion,
+            //     "add_init",
+            //     "add_filter",
+            //     "add_outputter",
+            // ],
 
             [ // Canvas上をセル分割し、差分等を認識する。
                 "./CanvasCells.mjs",
@@ -45,21 +45,21 @@ export const CanvasData = {
                 "add_viewpoint_factors",
             ],
 
-            [ // CanvasViewpointをテストするモジュール
-                "./TestCanvasViewpoint.mjs",
-                e => e.TestCanvasViewpoint,
-                "add_init",
-                "add_recognizer",
-                "add_outputter",
-                "add_viewpoint_factors",
-            ],
+            // [ // CanvasViewpointをテストするモジュール
+            //     "./TestCanvasViewpoint.mjs",
+            //     e => e.TestCanvasViewpoint,
+            //     "add_init",
+            //     "add_recognizer",
+            //     "add_outputter",
+            //     "add_viewpoint_factors",
+            // ],
 
-            [ // 物理エンジンによるエフェクトのテスト
-                "./CanvasPhysics.mjs",
-                e => e.CanvasPhysics,
-                "add_init",
-                "add_viewpoint_element",
-            ],
+            // [ // 物理エンジンによるエフェクトのテスト
+            //     "./CanvasPhysics.mjs",
+            //     e => e.CanvasPhysics,
+            //     "add_init",
+            //     "add_viewpoint_element",
+            // ],
 
             // [ // Canvas全体を転移学習によって分類学習する。
             //     "./CanvasTransferLearning.mjs",
@@ -69,13 +69,13 @@ export const CanvasData = {
             //     "add_outputter",
             // ],
 
-            [ // Canvas上のオブジェクトを認識する。
-                "./CanvasObjects.mjs",
-                e => e.CanvasObjects,
-                "add_init",
-                "add_recognizer",
-                "add_outputter",
-            ],
+            // [ // Canvas上のオブジェクトを認識する。
+            //     "./CanvasObjects.mjs",
+            //     e => e.CanvasObjects,
+            //     "add_init",
+            //     "add_recognizer",
+            //     "add_outputter",
+            // ],
 
             // [ // Canvasの一部を転移学習で分類学習しようとしたもの。2022.09.08時点で転移学習はできていない。
             //     "./CanvasTransferSsd.mjs",
