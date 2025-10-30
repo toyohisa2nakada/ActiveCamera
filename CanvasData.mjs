@@ -92,6 +92,7 @@ export const CanvasData = {
             //     "add_recognizer",
             //     "add_outputter",
             // ],
+            
         ]
         this.modules.objects = (await Promise.all(sets.map(e => import(`${e[0]}?${Date.now()}`)))).map((e, i) => sets[i][1](e));
         // const gui_onChanges = {};
