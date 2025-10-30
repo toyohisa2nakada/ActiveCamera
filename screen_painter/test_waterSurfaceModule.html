@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="./favicon.ico" type="image/x-icon">
-    <title>for iutopia</title>
+    <title>waterSurface with ScreenPainter for iUtopia</title>
 
     <style>
         body {
@@ -41,67 +41,108 @@
     <div id="stats"></div>
 
     <script type="module">
-        // 水面のcanvas
-        import "./waterSurfaceModule.js";
-        const water_surface_elem = document.querySelector("water-surface-canvas");
+        // 画面右上のthree.jsでよく見るメニュー
+        async function build_gui() {
+            const { default: GUI } = await import("https://cdn.jsdelivr.net/npm/lil-gui@0.17/+esm");
+            const gui = new GUI();
 
-        // iuの画像を表示
-        const img = new Image();
-        img.src = "./images/iu_front.png";
-        img.onload = () => {
-            water_surface_elem.init({ width: img.width, height: img.height });
-            water_surface_elem.getContext().drawImage(img, 0, 0, img.width, img.height);
-            // water_surface_elem.getContext().clearRect(0, 0, img.width, img.height);
+
+            gui.close();
+            const { lil_gui_lib } = await import("../libs/lil_gui_lib.mjs");
+            (await lil_gui_lib.init({ libs_backup_folder: "../libs_backup" })).set(gui);
+            return gui;
         }
+        const gui = await build_gui();
+
+        // 水面のcanvas
+        async function build_water_surface({ gui } = {}) {
+            await import("./waterSurfaceModule.js");
+            const elem = document.querySelector("water-surface-canvas");
+            elem.userData = { params: { enabled: true } }
+
+            // iuの画像を表示
+            const img = new Image();
+            img.src = "./images/iu_front.png";
+            img.onload = () => {
+                elem.init({ width: img.width, height: img.height });
+                elem.getContext().drawImage(img, 0, 0, img.width, img.height);
+            }
+
+            // menu
+            if (gui !== undefined) {
+                gui.add_all({ params: { object: elem, enabled: true }, folder: gui.addFolder("water surface") });
+                gui.onChange(ev => {
+                    if (ev.object.object === elem) {
+                        elem.userData.params[ev.property] = ev.value;
+                    }
+                });
+            }
+            return elem;
+        }
+        const water_surface_elem = await build_water_surface({ gui });
+
 
         // screen painterのmarker
-        const marker_canvas_elem = document.querySelector("#marker_receiver_canvas");
-        ({ width: marker_canvas_elem.width, height: marker_canvas_elem.height } = marker_canvas_elem.getBoundingClientRect());
-        ["pointerenter", "pointermove", "pointerleave"].forEach(name => {
-            marker_canvas_elem.addEventListener(name, (ev) => {
-                // console.log(name, ev)
-                // water_surface_elem._onMouseMove(ev)
+        async function build_marker_canvas() {
+            const marker_canvas_elem = document.querySelector("#marker_receiver_canvas");
+            ({ width: marker_canvas_elem.width, height: marker_canvas_elem.height } = marker_canvas_elem.getBoundingClientRect());
+            ["pointerenter", "pointermove", "pointerleave"].forEach(name => {
+                marker_canvas_elem.addEventListener(name, (ev) => {
+                    // console.log(name, ev)
+                    // water_surface_elem._onMouseMove(ev)
+                });
             });
-        });
-        ["touchstart", "touchmove", "touchend"].forEach(name => {
-            marker_canvas_elem.addEventListener(name, ev => {
-                // console.log(name, ev)
-                // water_surface_elem._onMouseMove(ev);
-                lines.add(ev.clientX, ev.clientY, ev.userData.color)
-                if (name === 'touchend') {
-                    lines.end(ev.userData.color)
-                }
+            ["touchstart", "touchmove", "touchend"].forEach(name => {
+                marker_canvas_elem.addEventListener(name, ev => {
+                    // console.log(name, ev)
+                    // water_surface_elem._onMouseMove(ev);
+                    lines.add(ev.clientX, ev.clientY, ev.userData.color)
+                    if (name === 'touchend') {
+                        lines.end(ev.userData.color)
+                    }
+                });
             });
-        });
-        import { marker_receiver } from "./marker_receiver.mjs";
-        marker_receiver.init({ canvas_elem: marker_canvas_elem });
+            const { marker_receiver } = await import("./marker_receiver.mjs");
+            marker_receiver.init({ canvas_elem: marker_canvas_elem });
+            return marker_receiver;
+        }
+        const marker_receiver = await build_marker_canvas();
 
         // camera
-        import { camera } from "../libs/webcamera/camera.js";
-        await camera.init({
-            video_controller_elem: document.getElementById("video_controller"),
-            video_resolution: [1024, 768],
-            recognition_canvas_resolution: [320, 180],
-        });
+        async function build_camera() {
+            const { camera } = await import("../libs/webcamera/camera.js");
+            await camera.init({
+                video_controller_elem: document.getElementById("video_controller"),
+                video_resolution: [1024, 768],
+                recognition_canvas_resolution: [320, 180],
+            });
+            return camera;
+        }
+        const camera = await build_camera();
 
         // 時間で消える線
         import { TimedLineRegistry } from "../libs/TimedLineRegistry.js";
         const lines = new TimedLineRegistry({ ctx: water_surface_elem.getContext(), life_ms: 5000 });
 
-        // ActiveCameraのミニ版
-        import { CanvasData } from "../CanvasData.mjs";
-        await CanvasData.import_modules();
-        await CanvasData.init(camera.recognition_canvas());
-        import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.17/+esm";
-        const gui = new GUI();
-        gui.close();
-        import { lil_gui_lib } from "../libs/lil_gui_lib.mjs";
-        (await lil_gui_lib.init({ libs_backup_folder: "../libs_backup" })).set(gui);
-        CanvasData.init_gui({ gui: gui });
 
-        // CanvasCellのセルの大きさ、背景差分のfactor比率を取得して、CanvasCellが赤で表示するセル情報だけを取得する。
-        const canvasCell_params = CanvasData.get_copied_all_params().filter(e => e.module_name === "CanvasCells")[0];
-        const cell_weight_limit = canvasCell_params.cell_h * canvasCell_params.cell_w * canvasCell_params.diffed_scene_weight;
+        // ActiveCameraのミニ版
+        async function build_active_camera({ gui } = {}) {
+            const { CanvasData } = await import("../CanvasData.mjs");
+            await CanvasData.import_modules();
+            await CanvasData.init(camera.recognition_canvas());
+            if (gui !== undefined) {
+                CanvasData.init_gui({ gui });
+            }
+
+            // CanvasCellのセルの大きさ、背景差分のfactor比率を取得して、CanvasCellが赤で表示するセル情報だけを取得する。
+            const canvasCell_params = CanvasData.get_copied_all_params().filter(e => e.module_name === "CanvasCells")[0];
+            const cell_weight_limit = canvasCell_params.cell_h * canvasCell_params.cell_w * canvasCell_params.diffed_scene_weight;
+
+            // factor配列の要素は、セルの中心位置x,yと重みの3要素で、重みはe[2]になるのでそこでフィルタリングする関数を用意する
+            return { CanvasData, viewpoint_factor_filter: e => e[2] > cell_weight_limit }
+        }
+        const { CanvasData, viewpoint_factor_filter } = await build_active_camera({ gui });
+
 
         // three.jsなどで使えるパフォーマンスモニター(オリジナルを少し修正している)
         import { Stats } from "../libs/Stats.min.mjs";
@@ -122,7 +163,7 @@
 
             // water surface部分
             water_surface_elem.getContext().drawImage(camera.video_canvas(), 0, 0, ...camera.video_canvas_wh())
-            const diffed_cells = (await CanvasData.get_viewpoint_factors()).filter(e => e[2] > cell_weight_limit);
+            const diffed_cells = (await CanvasData.get_viewpoint_factors()).filter(viewpoint_factor_filter);
             diffed_cells.forEach(e => {
                 const ev = {
                     clientX: camera.video_canvas().width * e[0] / recognize_canvas[1].width,

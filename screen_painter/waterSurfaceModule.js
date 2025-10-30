@@ -86,7 +86,6 @@ class WaterSurfaceCanvas extends HTMLElement {
 
         // マウス移動中は波紋を追加（強度を下げて穏やかに）
         this._addRipple(this._mouseX, this._mouseY, 512);
-        // console.log("onmousemove")
     }
 
     _onMouseLeave() {
@@ -102,7 +101,12 @@ class WaterSurfaceCanvas extends HTMLElement {
     }
 
     _addRipple(x, y, strength) {
-        if (x < 1 || x >= this._width - 1 || y < 1 || y >= this._height - 1) return;
+        if (this.userData?.params?.enabled === false) {
+            return;
+        }
+        if (x < 1 || x >= this._width - 1 || y < 1 || y >= this._height - 1) {
+            return;
+        }
 
         const current = this._rippleMap[this._currentBuffer];
         const radius = 15;
@@ -209,7 +213,7 @@ class WaterSurfaceCanvas extends HTMLElement {
     }
 
     // パブリックAPI
-    set params(value) {
+    set size(value) {
         if (value.width !== undefined) {
             this._width = value.width;
             this._canvas.width = this._width;
@@ -231,7 +235,7 @@ class WaterSurfaceCanvas extends HTMLElement {
         this._updateOriginalImageData();
     }
 
-    get params() {
+    get size() {
         return {
             width: this._width,
             height: this._height
