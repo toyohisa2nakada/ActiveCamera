@@ -61,6 +61,7 @@ export const CanvasCells = {
             // "diff_lower_threshold",
             // "unit_msec",
         ],
+        
     },
 
     /* lil_guiにパラメータ設定を変更して、get_settings, set_settingsは廃止予定 2022.09.28 */
