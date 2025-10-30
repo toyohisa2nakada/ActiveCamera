@@ -194,5 +194,6 @@ export const marker_receiver = {
             const center = this._draw_qr_marker({ ctx: this._canvas.ctx, x, y, w: this._params.qr_size });
         });
     },
+    
 };
 

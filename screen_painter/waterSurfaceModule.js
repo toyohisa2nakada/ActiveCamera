@@ -290,5 +290,4 @@ class WaterSurfaceCanvas extends HTMLElement {
 
 // カスタムエレメントとして登録
 customElements.define('water-surface-canvas', WaterSurfaceCanvas);
-
 export default WaterSurfaceCanvas;
