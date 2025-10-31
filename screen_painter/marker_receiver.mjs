@@ -4,7 +4,7 @@ export const marker_receiver = {
         // qr_pos_margin: 60,
         // qr_size: 160,
         qr_pos_margin: 60,
-        qr_size: 80,
+        qr_size: 180,
     },
     _draw_qr_marker: function ({ ctx, x, y, w }) {
 
