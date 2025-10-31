@@ -17,7 +17,7 @@ export class TimedLineRegistry {
         }
         this._linesByColor.get(color).push(line);
         this._active.set(color, line);
-        this._removeExpired(timestamp);
+        // this._removeExpired(timestamp);
     }
 
     add(x, y, color, timestamp = Date.now()) {
@@ -35,7 +35,7 @@ export class TimedLineRegistry {
         } else {
             last.t = timestamp;
         }
-        this._removeExpired(timestamp);
+        // this._removeExpired(timestamp);
     }
 
     end(color, timestamp = Date.now()) {
@@ -43,14 +43,14 @@ export class TimedLineRegistry {
             throw new Error("color is required");
         }
         this._active.delete(color);
-        this._removeExpired(timestamp);
+        // this._removeExpired(timestamp);
     }
 
     draw(ctx = this._ctx, timestamp = Date.now()) {
         if (!ctx) {
             throw new Error("A CanvasRenderingContext2D is required for drawing");
         }
-        this._removeExpired(timestamp);
+        // this._removeExpired(timestamp);
         ctx.save();
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
@@ -86,8 +86,15 @@ export class TimedLineRegistry {
         for (const [color, lines] of this._linesByColor.entries()) {
             for (let i = lines.length - 1; i >= 0; i--) {
                 const line = lines[i];
-                while (line.points.length && timestamp - line.points[0].t > life) {
-                    line.points.shift();
+                // while (line.points.length && timestamp - line.points[0].t > life) {
+                //     line.points.shift();
+                // }
+                let firstValidIndex = 0;
+                while (firstValidIndex < line.points.length && timestamp - line.points[firstValidIndex].t > life) {
+                    firstValidIndex++;
+                }
+                if (firstValidIndex > 0) {
+                    line.points.splice(0, firstValidIndex);
                 }
                 if (line.points.length === 0) {
                     lines.splice(i, 1);
