@@ -94,12 +94,13 @@
             });
             ["touchstart", "touchmove", "touchend"].forEach(name => {
                 marker_canvas_elem.addEventListener(name, ev => {
-                    // console.log(name, ev)
+                    console.log(name, ev)
                     // water_surface_elem._onMouseMove(ev);
-                    lines.add(ev.clientX, ev.clientY, ev.userData.color)
+                    lines.add({ uuid: ev.userData.uuid, x: ev.clientX, y: ev.clientY, color: ev.userData.color })
                     if (name === 'touchend') {
-                        lines.end(ev.userData.color)
+                        lines.end({ uuid: ev.userData.uuid })
                     }
+                    // lines.draw();
                 });
             });
             const { marker_receiver } = await import("./marker_receiver.mjs");
@@ -120,9 +121,14 @@
         }
         const camera = await build_camera();
 
+        // cameraのvideo canvasに合わせてwater surfaceをリサイズ移動する
+        water_surface_elem.size = camera.video_canvas();
+        water_surface_elem.pos = { left: camera.video_canvas_pos()[0], top: camera.video_canvas_pos()[1] }
+
         // 時間で消える線
-        import { TimedLineRegistry } from "../libs/TimedLineRegistry.js";
-        const lines = new TimedLineRegistry({ ctx: water_surface_elem.getContext(), life_ms: 30000 });
+        import { UuidLineRegistry } from "../libs/UuidLineRegistry.js";
+        // const lines = new TimedLineRegistry({ ctx: water_surface_elem.getContext(), life_ms: 30000 });
+        const lines = new UuidLineRegistry({ ctx: marker_receiver._canvas.ctx });
 
 
         // ActiveCameraのミニ版
@@ -142,7 +148,6 @@
             return { CanvasData, viewpoint_factor_filter: e => e[2] > cell_weight_limit }
         }
         const { CanvasData, viewpoint_factor_filter } = await build_active_camera({ gui });
-
 
         // three.jsなどで使えるパフォーマンスモニター(オリジナルを少し修正している)
         import { Stats } from "../libs/Stats.min.mjs";
@@ -173,10 +178,10 @@
             })
 
             // 時間で消える線の描画
-            TimeChecker.check("line_draw", 0);
-            lines.draw();
-            TimeChecker.check("line_draw", 1);
-            water_surface_elem.userData.params.enabled = lines.countLines() === 0;
+            // TimeChecker.check("line_draw", 0);
+            // // lines.draw();
+            // TimeChecker.check("line_draw", 1);
+            // water_surface_elem.userData.params.enabled = lines.countLines() === 0;
 
 
             // フレームレート

@@ -212,6 +212,17 @@ class WaterSurfaceCanvas extends HTMLElement {
         }
     }
 
+    set pos(value) {
+        if (value.left !== undefined && value.top !== undefined) {
+            Object.assign(this._canvas.style,
+                { position: "absolute", left: value.left + "px", top: value.top + "px" });
+        }
+    }
+    get pos() {
+        const rect = this._canvas.getBoundingClientRect();
+        return [rect.left + window.scrollX, rect.top + window.scrollY];
+    }
+
     // パブリックAPI
     set size(value) {
         if (value.width !== undefined) {
