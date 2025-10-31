@@ -72,6 +72,12 @@ export class TimedLineRegistry {
         ctx.restore();
     }
 
+    countLines() {
+        let count = 0;
+        this._linesByColor.entries().forEach(([_, lines]) => count += lines.length);
+        return count;
+    }
+
     _removeExpired(timestamp = Date.now()) {
         const life = this.life_ms;
         if (life === Infinity) {
