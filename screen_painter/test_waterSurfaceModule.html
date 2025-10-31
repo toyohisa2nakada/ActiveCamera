@@ -173,7 +173,9 @@
             })
 
             // 時間で消える線の描画
+            TimeChecker.check("line_draw", 0);
             lines.draw();
+            TimeChecker.check("line_draw", 1);
             water_surface_elem.userData.params.enabled = lines.countLines() === 0;
 
 
