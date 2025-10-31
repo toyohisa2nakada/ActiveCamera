@@ -619,11 +619,17 @@ export const camera = {
     video_canvas_wh: function () {
         return this._video_canvas?.userData.wh;
     },
+    video_canvas_pos: function () {
+        return this._get_canvas_pos(this._video_canvas);
+    },
     recognition_canvas: function () {
         return this._recognition_canvas;
     },
     recognition_canvas_wh: function () {
         return this._recognition_canvas.userData.wh;
+    },
+    recognition_canvas_pos: function(){
+        return this._get_canvas_pos(this._recognition_canvas);
     },
     canvas2_bak: function () {
         return [this._canvas2.bak_canvas()
@@ -661,6 +667,10 @@ export const camera = {
     },
     _set_canvas_pos: function (canvas, p) {
         ["left", "top"].forEach((e, i) => { canvas.style[e] = Math.round(p[i]) + "px"; });
+    },
+    _get_canvas_pos: function (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        return [rect.left + window.scrollX, rect.top + window.scrollY];
     },
     // 表示中の動画設定を取得する。
     _get_video_settings: function (video) {
