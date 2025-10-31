@@ -54,6 +54,9 @@
         }
         const gui = await build_gui();
 
+        // debounce (チャタリング防止) タイマー
+        import { createDebounceTimer } from "../libs/debounceTimer.js";
+
         // 水面のcanvas
         async function build_water_surface({ gui } = {}) {
             await import("./waterSurfaceModule.js");
@@ -80,34 +83,43 @@
             return elem;
         }
         const water_surface_elem = await build_water_surface({ gui });
+        // 線が描画されなくなって60秒後に線が全部消去される。
+        const linesResetTimer = createDebounceTimer(() => {
+            marker_receiver._canvas.ctx.clearRect(0, 0, ...marker_receiver._canvas.wh);
+        }, 60000);
+        // 線が描画されなくなって5秒ごに水面が復活する。
+        const waterSurfaceResumeTimer = createDebounceTimer(() => {
+            water_surface_elem.userData.params.enabled = true;
+        }, 5000);
+        const water_surface_touch_handler = (name, ev) => {
+            lines.add({ uuid: ev.userData.uuid, x: ev.clientX, y: ev.clientY, color: ev.userData.color })
+            if (name === 'touchend') {
+                lines.end({ uuid: ev.userData.uuid })
+            }
+            water_surface_elem.userData.params.enabled = false;
+            waterSurfaceResumeTimer.reset();
+            linesResetTimer.reset();
+        }
 
 
         // screen painterのmarker
-        async function build_marker_canvas() {
+        async function build_marker_canvas({ touch_handler }) {
             const marker_canvas_elem = document.querySelector("#marker_receiver_canvas");
             ({ width: marker_canvas_elem.width, height: marker_canvas_elem.height } = marker_canvas_elem.getBoundingClientRect());
             ["pointerenter", "pointermove", "pointerleave"].forEach(name => {
                 marker_canvas_elem.addEventListener(name, (ev) => {
-                    // console.log(name, ev)
-                    // water_surface_elem._onMouseMove(ev)
                 });
             });
             ["touchstart", "touchmove", "touchend"].forEach(name => {
                 marker_canvas_elem.addEventListener(name, ev => {
-                    console.log(name, ev)
-                    // water_surface_elem._onMouseMove(ev);
-                    lines.add({ uuid: ev.userData.uuid, x: ev.clientX, y: ev.clientY, color: ev.userData.color })
-                    if (name === 'touchend') {
-                        lines.end({ uuid: ev.userData.uuid })
-                    }
-                    // lines.draw();
+                    touch_handler(name, ev);
                 });
             });
             const { marker_receiver } = await import("./marker_receiver.mjs");
             marker_receiver.init({ canvas_elem: marker_canvas_elem });
             return marker_receiver;
         }
-        const marker_receiver = await build_marker_canvas();
+        const marker_receiver = await build_marker_canvas({ touch_handler: water_surface_touch_handler });
 
         // camera
         async function build_camera() {
