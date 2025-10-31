@@ -8858,7 +8858,7 @@ class libQuarks {
       duration: options.duration || 3,
       particleCount: options.particleCount || 50,
       speed: options.speed || [0.5, 2],
-      size: options.size || [0.05, 0.2],
+      size: options.size || [5e-3, 0.02],
       ...options
     };
     const explosionConfig = {
