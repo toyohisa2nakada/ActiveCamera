@@ -37,7 +37,7 @@ class WaterSurfaceCanvas extends HTMLElement {
         this._stopAnimation();
     }
 
-    init({ width = 600, height = 400, damping = 0.85 } = {}) {
+    init({ width = 600, height = 400, damping = 0.45 } = {}) {
         this._width = width;
         this._height = height;
 
