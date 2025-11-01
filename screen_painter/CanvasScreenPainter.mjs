@@ -38,7 +38,7 @@ export const CanvasScreenPainter = {
             "pointer_visibility",
             "threshold_min_value", "threshold_range", "threshold_loop",
             "adaptive_threshold", "gray_not_blue_channel",
-            "rect_simple__length_min", "rect_simple__length_max",
+            // "rect_simple__length_min", "rect_simple__length_max",
             "rect_simple__aspect_min", "rect_simple__aspect_max",
             "rect_score_limit",
             "comm_enabled",
@@ -816,3 +816,4 @@ export const CanvasScreenPainter = {
         // return this._dft(data.imageData);
     },
 };
+
