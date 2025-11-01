@@ -65,7 +65,7 @@
         const screen_wh = [document.body.clientWidth, document.body.clientHeight];
         // inner frameのセットアップ
         const inner_frame_elem = document.getElementById("inner_frame");
-        inner_frame_elem.src = "https://www.pecode.com/"
+        inner_frame_elem.src = "https://iutopia.i-u.ac.jp/"
         inner_frame_elem.position = "absolute";
         inner_frame_elem.left = "0px";
         inner_frame_elem.top = "0px";
@@ -116,7 +116,7 @@
                 map(e => Math.pow(e, 2)).reduce((a, e) => a + e));
             if (Math.abs(mag_vel - vars.obj.userData.mag_vel0) > mag_limit) {
                 sound?.();
-                quarks.add(quarks.createExplosion(vars.obj.userData.objThree.position));
+                quarks.add(quarks.createExplosion(vars.obj.userData.objThree.position, { rgba: [1.0, 1.0, 0.0, 1] }));
             }
             vars.obj.userData.mag_vel0 = mag_vel;
         };
@@ -255,7 +255,7 @@
     // デバッグ用
     setTimeout(async () => {
         const rect = marker_canvas_elem.getBoundingClientRect();
-        const test_moving_by_manual_pos = [rect.width / 2, rect.height / 2, 0];
+        const test_moving_by_manual_pos = [rect.width / 2, rect.height / 1.1, 0];
         const texture_info = Canvas3D.createCanvasTexture({ wh: [500, 500], color: 0xffffff })
         const obj = await Canvas3D.createModelWithPhysics({
             view: { type: "sphere", r: 48, color: 0xffffff, map: texture_info.texture },
@@ -460,7 +460,7 @@
         //     await shot();
         // }, 1000)
     }
-    await enemy_setup();
+    // await enemy_setup();
 
     import { marker_receiver } from "./marker_receiver.mjs";
     marker_receiver.init({ canvas_elem: marker_canvas_elem });
