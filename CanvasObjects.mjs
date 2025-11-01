@@ -127,7 +127,7 @@ export const CanvasObjects = {
             // console.log(this.params.net_type)
             // console.log(mtype,w,h,cls);
 
-            const model_file = `./object_detection_models/yolox_${[mtype, "inp", "3", w, h, cls].join("_")}.onnx`;
+            const model_file = `/ActiveCamera/object_detection_models/yolox_${[mtype, "inp", "3", w, h, cls].join("_")}.onnx`;
             console.log(`loading ${model_file}`)
             const wh = [w, h].map(e => Number(e));
             this._class_labels = this[`_${cls}_class_labels`];
