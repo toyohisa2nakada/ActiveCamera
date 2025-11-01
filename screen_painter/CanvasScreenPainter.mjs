@@ -816,4 +816,3 @@ export const CanvasScreenPainter = {
         // return this._dft(data.imageData);
     },
 };
-

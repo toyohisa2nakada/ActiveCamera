@@ -4,7 +4,7 @@ export const marker_receiver = {
         // qr_pos_margin: 60,
         // qr_size: 160,
         qr_pos_margin: 60,
-        qr_size: 180,
+        qr_size: 80,
     },
     _draw_qr_marker: function ({ ctx, x, y, w }) {
 
@@ -24,10 +24,10 @@ export const marker_receiver = {
             frame_margin_ratio,
         ]
             // 市販のQRコードのマークをまねたもの。
-            // = [0.1, 0.4, 0.1];
+            = [0.1, 0.4, 0.1];
 
             // 二値化を考えて、四角形が作りやすそうなもの。
-            = [0.3, 0.0, 0.0];
+            // = [0.3, 0.0, 0.0];
 
 
         // strokeRectは幅が偶数の場合、その数値を2nとすると、

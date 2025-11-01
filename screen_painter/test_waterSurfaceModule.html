@@ -140,7 +140,7 @@
         // 時間で消える線
         import { UuidLineRegistry } from "../libs/UuidLineRegistry.js";
         // const lines = new TimedLineRegistry({ ctx: water_surface_elem.getContext(), life_ms: 30000 });
-        const lines = new UuidLineRegistry({ ctx: marker_receiver._canvas.ctx });
+        const lines = new UuidLineRegistry({ ctx: marker_receiver._canvas.ctx, lineWidth: 5 });
 
 
         // ActiveCameraのミニ版
