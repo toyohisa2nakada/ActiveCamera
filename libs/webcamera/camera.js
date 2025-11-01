@@ -628,7 +628,7 @@ export const camera = {
     recognition_canvas_wh: function () {
         return this._recognition_canvas.userData.wh;
     },
-    recognition_canvas_pos: function(){
+    recognition_canvas_pos: function () {
         return this._get_canvas_pos(this._recognition_canvas);
     },
     canvas2_bak: function () {
@@ -694,8 +694,6 @@ export const camera = {
         const reso0 = resos[this._params.init_video_resolution_index];
         const video_opt = {};
         if (reso0 !== undefined) {
-            // video_opt.width = reso0[0];
-            // video_opt.height = reso0[1];
             video_opt.width = { ideal: reso0[0], max: Math.max(...resos.map(e => e[0])), min: Math.min(...resos.map(e => e[0])) };
             video_opt.height = { ideal: reso0[1], max: Math.max(...resos.map(e => e[1])), min: Math.min(...resos.map(e => e[1])) };
             video_opt.facingMode = this._params.init_facingMode;
@@ -704,8 +702,7 @@ export const camera = {
         console.log("request video:" + JSON.stringify(video_opt));
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
-            // video: { ...video_opt, deviceId: deviceId },
-            video: { ...video_opt, deviceId },
+            video: { ...video_opt, deviceId: { exact: deviceId } },
             zoom: true,
         });
         video.srcObject = stream;
