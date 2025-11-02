@@ -180,8 +180,8 @@
                     }
                     const color_ranking = Object.entries(colorRatio(hit.object.userData.canvasData)).sort((e0, e1) => e1[1] - e0[1]);
                     const color = Object.values(JSON.parse(color_ranking[0][0]));
-                    if (!(color[0] === 255 && color[1] === 255 && color[2] === 255) && color_ranking[0][1] >= 0.7) {
-                        quarks.explodeObject(hit.object, { rgba: [...color.map(e => e / 255), 1.0], size: [0.5, 2] });
+                    if (!(color[0] === 255 && color[1] === 255 && color[2] === 255) && color_ranking[0][1] >= 0.6) {
+                        quarks.explodeObject(hit.object, { rgba: [...color.map(e => e / 255), 1.0], size: [0.1, 1], speed: [20, 50] });
                         targets.remove(hit.object);
                         setTimeout(() => {
                             targets.add(hit.object.userData.index);
