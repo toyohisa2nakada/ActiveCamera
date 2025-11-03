@@ -69,13 +69,13 @@ export const CanvasData = {
             //     "add_outputter",
             // ],
 
-            // [ // Canvas上のオブジェクトを認識する。
-            //     "./CanvasObjects.mjs",
-            //     e => e.CanvasObjects,
-            //     "add_init",
-            //     "add_recognizer",
-            //     "add_outputter",
-            // ],
+            [ // Canvas上のオブジェクトを認識する。
+                "./CanvasObjects.mjs",
+                e => e.CanvasObjects,
+                "add_init",
+                "add_recognizer",
+                "add_outputter",
+            ],
 
             // [ // Canvasの一部を転移学習で分類学習しようとしたもの。2022.09.08時点で転移学習はできていない。
             //     "./CanvasTransferSsd.mjs",
