@@ -255,7 +255,7 @@
     // デバッグ用
     setTimeout(async () => {
         const rect = marker_canvas_elem.getBoundingClientRect();
-        const test_moving_by_manual_pos = [rect.width / 2 - 40, rect.height / 1.1, 0];
+        const test_moving_by_manual_pos = [rect.width / 2 - 10, rect.height / 1.1, 0];
         const texture_info = Canvas3D.createCanvasTexture({ wh: [500, 500], color: 0xffffff })
         const obj = await Canvas3D.createModelWithPhysics({
             view: { type: "sphere", r: 48, color: 0xffffff, map: texture_info.texture },
