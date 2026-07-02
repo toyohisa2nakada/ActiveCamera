@@ -4,6 +4,7 @@ libs_backup/
 object_detection_models/
 release/
 screen_painter/*/
+!screen_painter/images/
 screen_painter/*.pptx
 tools/
 tried/
