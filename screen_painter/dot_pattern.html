@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+</body>
+
+<script>
+
+    const margin = 20;
+    // const wh = [window.innerWidth, window.innerHeight].map(e => e - margin * 2 - 10);
+    // const wh = [512, 512];
+    const wh = [1280, 720];
+
+    const canvas_elem = document.getElementById("canvas");
+    canvas_elem.style.margin = `${margin}px`;
+    canvas_elem.width = wh[0];
+    canvas_elem.height = wh[1];
+
+    const ctx = canvas_elem.getContext("2d", { willReadFrequently: true });
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, ...wh);
+
+    const draw_rectangle = ({ ctx, canvas_wh, side_length, span, arc_radius, arc_span, color_distance }) => {
+        for (let x = 0; x + side_length < canvas_wh[0]; x += side_length + span) {
+            for (let y = 0; y + side_length < canvas_wh[1]; y += side_length + span) {
+
+                // 四角
+                const col_b = 255 - color_distance;
+                ctx.fillStyle = `rgba(${col_b},${col_b},${col_b},1)`;
+                ctx.fillRect(x, y, side_length, side_length);
+
+                // 四角内のサークル
+                ctx.fillStyle = `rgba(${col_b},255,${col_b},1)`;
+                ctx.beginPath();
+                ctx.arc(x + arc_radius + arc_span, y + arc_radius + arc_span, arc_radius, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+    };
+
+    // 正方形の一片の長さ
+    const side_length = 100;
+    // 正方形を配置するときの間の距離
+    const span = 40;
+    // 正方形内の円の半径
+    const arc_radius = 20;
+    // 円の中心を正方形の左受けからどれだけ離すか
+    const arc_span = 5;
+    // 色の差分
+    const color_distance = 10;
+    // draw_rectangle({ ctx, canvas_wh: wh, side_length, span, arc_radius, arc_span, color_distance });
+
+
+    // sin波, 画像のdftに合わせて画像の横360度、縦360度としてピクセルから角度に変換する。
+    // amplitude: グレースケールの画素値 0-63.75, phase: 右と下に波形が移動するピクセル数, frequency: 0Hz～
+    // 画素値の最大は63.75とする。その理由は、画像の横、縦の波を合成するので、合成後の振幅は-127.5～127.5になる。
+    // この幅は255なので、そのまま横にスライドして0～255の値にしてグレースケールの画素値にするからである。
+    // dft: https://www.clg.niigata-u.ac.jp/~medimg/practice_medical_imaging/imgproc_imagej/imgproc_imageJ/5fourier/index.html
+    const draw_wave = ({ ctx, canvas_wh, amplitudes, phases, frequencies }) => {
+
+        // 2つの波の最大振幅
+        const amp = amplitudes.reduce((a, e) => a + e);
+
+        // ピクセルからラジアンへの変換
+        const to_rad = (pixel, unit) => 2 * Math.PI * pixel / unit;
+
+        // 位相のラジアン表現
+        const phases_rad = phases.map((e, i) => to_rad(e, canvas_wh[i]));
+        console.log(phases, phases.rad);
+
+        for (let y = 0; y < canvas_wh[1]; y += 1) {
+            for (let x = 0; x < canvas_wh[0]; x += 1) {
+                const rads = [x, y].map((e, i) => to_rad(e, canvas_wh[i]));
+                const gray = Math.round(
+                    rads.map((r, i) => amplitudes[i] * Math.sin(frequencies[i] * r + phases_rad[i]))
+                        .reduce((a, e) => a + e)
+                    + amp
+                );
+                // console.log(gray);
+                // const gray = amplitude * Math.sin(frequency * rad + phase_rad) + 127.5;
+                ctx.fillStyle = `rgba(${gray},${gray},${gray},1.0)`;
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+    };
+    draw_wave({ ctx, canvas_wh: wh, amplitudes: [10, 10], phases: [0, 0], frequencies: [32, 32] });
+
+    /* opencv.jsのチュートリアルにあるdtfサンプルから、最大の周波数成分を抜き出すものに変更したもの。
+       https://docs.opencv.org/3.4/dd/d02/tutorial_js_fourier_transform.html
+    
+    let src = cv.imread('canvasInput');
+    cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0);
+
+    // get optimal size of DFT
+    let optimalRows = cv.getOptimalDFTSize(src.rows);
+    let optimalCols = cv.getOptimalDFTSize(src.cols);
+    let s0 = cv.Scalar.all(0);
+    let padded = new cv.Mat();
+    cv.copyMakeBorder(src, padded, 0, optimalRows - src.rows, 0,
+        optimalCols - src.cols, cv.BORDER_CONSTANT, s0);
+
+    // use cv.MatVector to distribute space for real part and imaginary part
+    let plane0 = new cv.Mat();
+    padded.convertTo(plane0, cv.CV_32F);
+    let planes = new cv.MatVector();
+    let complexI = new cv.Mat();
+    let plane1 = new cv.Mat.zeros(padded.rows, padded.cols, cv.CV_32F);
+    planes.push_back(plane0);
+    planes.push_back(plane1);
+    cv.merge(planes, complexI);
+
+    // in-place dft transform
+    cv.dft(complexI, complexI);
+
+    // compute log(1 + sqrt(Re(DFT(img))**2 + Im(DFT(img))**2))
+    cv.split(complexI, planes);
+    cv.magnitude(planes.get(0), planes.get(1), planes.get(0));
+    let mag = planes.get(0);
+    let m1 = new cv.Mat.ones(mag.rows, mag.cols, mag.type());
+    cv.add(mag, m1, mag);
+    cv.log(mag, mag);
+
+    // mag: 振幅スペクトル
+    console.log(mag);
+    // x,y===0,0は0Hzの波ではない成分なので、そこを除外する。
+    let max = { x: -1, y: -1, value: 0 };
+    for (let y = 1; y < 512/2; y += 1) {
+        for (let x = 1; x < 512/2; x += 1) {
+            const value = mag.data32F[y * 512 + x];
+            if (max.value < value) {
+                max = { x, y, value };
+            }
+        }
+    }
+    console.log(max);
+    console.log(`x:${max.x}Hz, y:${max.y}Hz`);
+
+    // crop the spectrum, if it has an odd number of rows or columns
+    let rect = new cv.Rect(0, 0, mag.cols & -2, mag.rows & -2);
+    mag = mag.roi(rect);
+
+    // The pixel value of cv.CV_32S type image ranges from 0 to 1.
+    cv.normalize(mag, mag, 0, 1, cv.NORM_MINMAX);
+
+    cv.imshow('canvasOutput', mag);
+    src.delete(); padded.delete(); planes.delete(); complexI.delete(); m1.delete();
+    */
+
+
+
+</script>
+
+</html>

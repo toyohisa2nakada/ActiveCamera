@@ -1,0 +1,81 @@
+2025.08.29 three.quarksというライブラリを使った3Dオブジェクトの爆発ライブラリの作成
+
+## src/libQuarks.js #################################
+このファイルが dist/explosion-bundle.js から公開される。
+
+## src/main.js #################################
+libQuarks.jsを利用するファイル、ライブラリ開発用で外部からは利用しない。
+
+## npm run dev #################################
+プロジェクトルートで、実行する。
+開発用の実行環境
+
+## npm run build #################################
+プロジェクトルートで、実行する。
+ロールアップしてライブラリファイルを作成する。
+dist/explosion-bundle.js が作られる。
+
+## 実行環境でのテスト #################################
+test_library.html をプロジェクトルートに作成する。
+プロジェクトルートで python -m http.server
+
+
+ここからは環境構築
+------------------------------------------------------------
+
+## Viteプロジェクト作成 #################################
+npm create vite@latest three-explosion
+ (Vanilla, JavaScriptを選択)
+cd three-explosion
+
+## 依存関係インストール #################################
+npm install three three.quarks
+
+## vite.config.js #################################
+プロジェクトルート(three-explosion)に以下の内容のvite.config.jsファイルを追加する。
+import { defineConfig } from 'vite';
+export default defineConfig({
+  build: {
+    lib: {
+      entry: './src/explosion.js',
+      fileName: 'explosion-bundle',
+      formats: ['es']
+    },
+    rollupOptions: {
+      output: {
+        format: 'es'
+      }
+    },
+    minify: false  // デバッグしやすくするため（本番では true）
+  }
+});
+
+## index.html #################################
+プロジェクトルートのindex.htmlはvite上の開発で使用するindex.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js + Three.quarks Explosion</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">Click to explode the sphere!</div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
+
+
+
+

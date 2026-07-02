@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+	<div>フルスクリーンを戻したときに、フルスクリーン状態の値が出力されます。</div>
+	<button id="full_screen" class="full_screen">フルスクリーン</button>
+	<div id="panel"></div>
+	<script>
+		const body = document.body;
+		const show = () => {
+			const el = document.getElementById("panel");
+			[
+				"outerWidth", "innerWidth", "clientWidth",
+				"outerHeight", "innerHeight", "clientHeight",
+				"devicePixelRatio", ["outerHeight", "devicePixelRatio"]
+			].forEach(e => {
+				({
+					"string": () => el.innerHTML += `${e}=${window[e] ?? body[e]}<br>`,
+					"object": () => el.innerHTML += `${e[0]}*${e[1]}=${window[e[0]] * window[[e[1]]]}<br>`,
+				})[typeof (e)]();
+			});
+			el.innerHTML += "<hr>";
+		}
+		const toggleFullScreen = function () {
+			var doc = window.document;
+			var docEl = doc.documentElement;
+
+			var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+			var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+			if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+				requestFullScreen.call(docEl);
+			} else {
+				cancelFullScreen.call(doc);
+			}
+		}
+		document.getElementById("full_screen").addEventListener("click", (e) => {
+			toggleFullScreen();
+			show();
+		});
+		show();
+
+	</script>
+</body>
+
+</html>

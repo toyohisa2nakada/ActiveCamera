@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+
+<!--
+    デジタルズームによるactive_camera
+    処理をするコンポーネントを、以下の種類で機能を登録する。
+
+    init: canvasを引数として初期化処理をする。処理の開始時だけでなく、カメラデバイスの設定変更時にも呼び出される。
+    filter: 画像データの認識部分を制限する。
+    recognize: それぞれの認識機能を実施する。
+    output: 認識結果の表示を行う。
+    viewpoint_factors: 仮想パンチルトの位置を決定するための要因を取得する。
+    settings: コンポーネントの設定を行う。
+
+    例えば、CanvasCells.mjsは、initによってCanvasサイズからセルサイズを予め計算し、recognizeでセルの変化を記録する。
+    outputでは変化のあった箇所を赤く表示し、viewpoint_factorsで変化のあったセルの位置を戻す。settingsではセルのサイズ、
+    セル代表値を更新する割合、差分判定の閾値の設定変更を行う。filterは使用しない。
+    一方、CanvasRegion.mjsでは、filterで画面上で設定した領域のみを認識対象として残すように処理する。outputではその設定を
+    表示するのであるが、viewpoint_factorsを使用しないため直接的に仮想パンチルトには影響を与えない。
+
+
+    2022初期の時点でAndroidのネイティブアプリによっても処理速度の向上が見られないことから、このプログラムでの開発をベースにするように戻す。
+
+    2021.12.05の時点で以下の方向性を試すことになったので、このプログラムは一時凍結する。
+    ・2つのカメラはそれぞれのカメラ角度が違うことによる補正、オートバランスの色調整の逆補正などの問題があるために実装するのが困難である。
+    ・4K画像の処理が遅い。
+-->
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <script type="module" src="SkeletonUtils.js"></script> -->
+    <!-- <meta name="viewport" content="width=1080, user-scalable=no"> -->
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .no_scroll {
+            background: #aaaaaa;
+        }
+
+        #header {
+            height: 8px;
+            width: auto;
+        }
+
+        #stats {
+            position: relative;
+            width: 100%;
+            /* height: 80px; */
+        }
+
+        .full_screen {
+            display: none;
+        }
+
+        .fileselect_button {
+            border: 10px solid #230778;
+        }
+
+        /* 2024.03.20 複数台のカメラは動作しないため、カメラ追加のボタンを非表示にする。 */
+        #add_video_panel {
+            display: none;
+        }
+
+        #tabs {
+            height: 30px;
+        }
+    </style>
+
+    <script src="libs/hammer.min.js"></script>
+    <script src="libs/Colors.js/Colors.js"></script>
+    <script src="libs/TimeChecker.js"></script>
+
+</head>
+
+<body>
+    <div id="header">
+        <button id="full_screen" class="full_screen">フルスクリーン</button>
+    </div>
+    <div id="video_controller">
+        <div id="tabs"></div>
+    </div>
+    <div id="statistics">
+        <div id="stats"></div>
+        <div id="settings"></div>
+    </div>
+    <div id="module_output"></div>
+</body>
+<script type="module">
+    // 配列の最初でオブジェクトを指定して、そのあとの関数で値をセットする。Object.keysで一覧に現れないようにenumerable:falseとしている。
+    // [document.createElement("div"),e=>e.style.cssText="display:inline-block"].a2e() のようにして使用する。
+    [Array, "a2e"].reduce((a, e) => { a.prototype[e] = function () { return this.reduce((e, f) => { f(e); return e; }); }; Object.defineProperty(a.prototype, e, { enumerable: false }); });
+
+    // 配列から1つの要素を選択する。
+    [Array, "choice"].reduce((a, e) => { a.prototype[e] = function () { return this[Math.floor(this.length * Math.random())]; }; Object.defineProperty(a.prototype, e, { enumerable: false }); });
+
+
+    // 変数の値監視用ライブラリ 例 const d = watching(()=>get_d(),(l)=>console.log(l)); d()を呼び出す度にget_d()の戻り値が変わるとconsole.logが呼ばれる。
+    const watching = (g, l) => { let v = ""; return function () { const w = g(); if (v != w) { v = w; l(v); } }; };
+    // selectエレメントのoptionを選択する。optionがない場合は、追加する。
+    HTMLSelectElement.prototype.set = function (value, textContent, find_next_element_during_add_f) {
+        const a = Array.from(this.options);
+        const i = a.findIndex(e => e.value == value);
+        if (i >= 0) {
+            this.selectedIndex = i;
+        } else {
+            let i1 = find_next_element_during_add_f === undefined ? -1 : find_next_element_during_add_f(a);
+            i1 = i1 == -1 ? a.length : i1;
+            this.add([
+                document.createElement("option"), e => e.value = value, e => e.textContent = textContent,
+            ].a2e(), this.options[i1]);
+            this.selectedIndex = i1;
+        }
+        this.dispatchEvent(new Event("change"));
+    };
+
+    // URLparameter
+    const html_params = [...new URLSearchParams(location.search).entries()].reduce((obj, e) => ({ ...obj, [e[0]]: e[1] }), {});
+    console.log("html_params", html_params);
+
+    // フルスクリーン
+    const toggleFullScreen = function () {
+        var doc = window.document;
+        var docEl = doc.documentElement;
+
+        var requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+        var cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+        if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+            requestFullScreen.call(docEl);
+        } else {
+            cancelFullScreen.call(doc);
+        }
+    }
+    document.getElementById("full_screen").addEventListener("click", (e) => {
+        toggleFullScreen();
+    });
+
+    // three.jsなどで使えるパフォーマンスモニター(オリジナルを少し修正している)
+    import { Stats } from "./libs/Stats.min.mjs";
+    const stats = Stats.customInit({ max_fps: 90, elem: document.getElementById("stats") });
+
+    // タブの準備
+    import { createTabs } from "./libs/tabs_master/tabs.mjs";
+    const setup_tabs = (tabs, video, devices) => {
+        devices.forEach((di) => {
+            tabs.add([
+                document.createElement("span"),
+                e => e.innerHTML = di.label,
+                e => e.deviceId = di.deviceId,
+                e => e.kind = di.kind,
+            ].a2e());
+        });
+        tabs.add_listener(async e => {
+            await camera.reset_video(e.title.deviceId);
+        });
+    }
+
+    // htmlパラメータでファイルオプションが設定されている場合、デバイスにファイルを追加する。
+    if (html_params.file !== undefined) {
+        devices.unshift({
+            deviceId: "",
+            label: "ローカルファイル",
+            kind: "file",
+        });
+        console.log(devices);
+        // ファイル以外のデバイスは削除する。
+        devices.splice(1);
+    }
+
+
+    // camera
+    const { camera } = await import("./libs/webcamera/camera.js");
+    await camera.init({
+        video_controller_elem: document.getElementById("video_controller"),
+        video_resolution: [1024, 768],
+        recognition_canvas_resolution: [320, 180],
+        video_recognition_canvas_on_update: () => {
+            if (camera.video_canvas() !== undefined) {
+                CanvasData.set_viewpoint_element(camera.video_canvas(), camera.video_canvas_ctx(),
+                    camera.recognition_canvas_wh());
+            }
+        },
+    });
+
+
+    // タブの生成
+    const tabs = createTabs(document.getElementById("tabs"));
+    setup_tabs(tabs, undefined, camera.devices());
+
+    // 各処理オブジェクトの読み込みと登録
+    //
+    // 画像データ、各処理モジュールの管理
+    import { CanvasData } from "./CanvasData.mjs";
+    await CanvasData.import_modules();
+
+    // video elementを移動させるバージョンは以下のコードに変える。
+    // CanvasData.set_viewpoint_element(videos[0], [video_canvas.width, video_canvas.height]);
+    CanvasData.set_viewpoint_element(camera.video_canvas(), camera.video_canvas_ctx(),
+        camera.recognition_canvas_wh());
+
+    const debug_wh = watching(
+        () => { return "wh=" + document.documentElement.clientWidth + "," + document.documentElement.clientHeight; },
+        (l) => {
+            // console.log(l);
+        },
+    );
+    const debug_sc = watching(
+        () => { return "sc=" + window.scrollX + "," + window.scrollY; },
+        (l) => {
+            // console.log(l);
+        },
+    );
+
+    // websocketによるimage配信の設定
+    const image_delivery = {
+        enable: false,
+        elapsed_msec: 0,
+        interval_msec: 1000,
+        min_interval_msec: 500, // これ以上はイメージ送信の間隔を小さくできないようにする。
+    };
+
+    // Google Cloud Run上のWebSocketサーバとの通信
+    import { CommClient } from "./libs/CommClient.mjs";
+    CommClient.init(`camera_${Date.now()}`, {
+        text: e => {
+            console.log(e.data);
+        },
+        server_cmd: e => {
+            ({
+                opened: e => {
+                    CommClient.send({ cmd: "set_type", type: "camera", data: "opened", params: CanvasData.get_copied_all_params() });
+                    CommClient.send({ cmd: "get_type", to_id: "controllers" });
+                },
+            })[e.type]?.();
+        },
+        set_type: e => {
+            // if (CommClient.get_clients("controller").length === 0) {
+            //     image_delivery.enable = false;
+            // }
+            image_delivery.enable = CommClient.get_clients("controller").length !== 0;
+        },
+        get_type: e => {
+            CommClient.send({ cmd: "set_type", type: "camera", data: "opened", params: CanvasData.get_copied_all_params() });
+        },
+        set_image_delivery_params: e => {
+            // CommClient.params.get_images = true;
+            // image_delivery.enable = true;
+            image_delivery.interval_msec = Math.max(e.interval_msec, image_delivery.min_interval_msec);
+            image_delivery.elapsed_msec = image_delivery.interval_msec;
+        },
+        // stop_to_get_images: e => {
+        //     image_delivery.enable = false;
+        // },
+        set_params: e => {
+            // const updated_values = { ...e.values };
+            Object.keys(e.values).forEach(prop => {
+                gui.controllersRecursive().filter(c => c.object.module_name === e.module_name && c.property === prop)?.[0].setValue(e.values[prop]);
+
+                // updated_values[prop] = CanvasData.get_modules().filter(ei => ei.params?.module_name === e.module_name).at(0)?.params[prop];
+            });
+
+            // CommClient.send({
+            //     cmd: "set_params",
+            //     to_id: "controllers",
+            //     module_name: e.module_name,
+            //     values: updated_values,
+            // });
+        },
+    });
+
+    // debug
+    TimeChecker.enable = false;
+
+    let prev_tm = Date.now();
+    let frameCount = 0;
+    const render = async () => {
+        const tm = Date.now();
+        const dt = tm - prev_tm;
+        frameCount += 1;
+
+        TimeChecker.check("get_imageData", 0);
+        camera.render();
+        const recognize_canvas = camera.canvas2_bak();
+        CanvasData.set_output_canvas(recognize_canvas[0])
+        CanvasData.set_image(...recognize_canvas);
+        TimeChecker.check("get_imageData", 1);
+
+        TimeChecker.check("fil_recog_update_disp", 0);
+        const effective_pixels = await CanvasData.filter();
+        await CanvasData.recognize(dt);
+        CanvasData.update_viewpoint(await CanvasData.get_viewpoint_factors(), dt, effective_pixels);
+        const output_data = await CanvasData.output();
+        TimeChecker.check("fil_recog_update_disp", 1);
+
+        // 付加情報の描画
+        // draw_info(camera.video_canvas());
+
+        TimeChecker.check("image_delivery", 0);
+        if (image_delivery.enable && image_delivery.elapsed_msec >= image_delivery.interval_msec) {
+            CommClient.send({
+                cmd: "image",
+                to_id: "controllers",
+                wh: output_data.output_canvas_wh,
+                data: output_data.output_canvas.toDataURL(),
+            });
+            image_delivery.elapsed_msec = 0;
+        }
+        image_delivery.elapsed_msec += dt;
+        TimeChecker.check("image_delivery", 1);
+
+        TimeChecker.check("framerate", 0);
+        stats.customUpdate(1000.0 / dt);
+        TimeChecker.check("framerate", 1);
+
+        // setTimeout(()=>{
+        //     requestAnimationFrame(render);
+        // },400);
+        requestAnimationFrame(render);
+
+        // debug
+        debug_wh();
+        debug_sc();
+
+        prev_tm = tm;
+    };
+    await CanvasData.init(camera.recognition_canvas());
+
+    import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.17/+esm";
+    const gui = new GUI();
+    import { lil_gui_lib } from "./libs/lil_gui_lib.mjs";
+    (await lil_gui_lib.init()).set(gui);
+
+    CanvasData.init_gui({ gui: gui });
+    gui.add_all({ params: CommClient.params, folder: gui.addFolder("websocket local status") });
+    gui.onChange(ev => {
+        // 先に各プロパティに関連付けられているonChangeを実行してから、本処理を行うため、setTimeoutで一度処理をシステムに戻す。
+        setTimeout(() => {
+            const updated_value = CanvasData.get_modules().filter(e => e.params?.module_name === ev.object.module_name).at(0)?.params?.[ev.property];
+            // console.log("gui - onChange", gui, ev, updated_value);
+            if (updated_value !== undefined) {
+                CommClient.send({
+                    cmd: "set_params",
+                    to_id: "controllers",
+                    module_name: ev.object.module_name,
+                    values: { [ev.property]: updated_value },
+                });
+            }
+        }, 0);
+    });
+    gui.close();
+
+    // スクロールの制御
+    const scroll_controller = {
+        _class_name: "no_scroll",
+        _last_touch_end: 0,
+        _toggle: function () {
+            console.log(this._elem);
+            console.log(this._elem.classList)
+            if (this._elem.classList.contains(this._class_name)) {
+                this._elem.classList.remove(this._class_name);
+            } else {
+                this._elem.classList.add(this._class_name);
+            }
+        },
+        init: function (elem) {
+            this._elem = elem;
+            elem.addEventListener("touchend", e => {
+                const t1 = Date.now();
+                if (t1 - this._last_touch_end <= 300) {
+                    e.preventDefault();
+                    this._toggle();
+                }
+                this._last_touch_end = t1;
+            });
+            elem.addEventListener("touchmove", e => {
+                if (this._elem.classList.contains(this._class_name)) {
+                    e.preventDefault();
+                }
+            }, { passive: false })
+        },
+    };
+    scroll_controller.init(document.body);
+
+    requestAnimationFrame(render);
+</script>
+
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .animation-area {
+            margin: 200px;
+        }
+    </style>
+
+</head>
+
+<body>
+    <button id="start">開始</button>
+    <div class="animation-area">
+        <img id="image" src="QRパターン01.png" alt="site-logo">
+    </div>
+</body>
+
+<script>
+    const start = document.getElementById('start'); // 開始ボタン
+    const image = document.getElementById('image'); // ロゴ画像
+
+    // スタートボタンをクリックしたら
+    start.addEventListener('click', () => {
+        // 画像を時計回りに1回転させる
+        image.animate(
+            // 途中の状態を表す配列
+            [
+                { transform: 'translateX(0px) rotate(0deg) scale(1)' }, // 開始時の状態（0度）
+                { transform: 'translateX(300px) rotate(360deg) scale(0.6)' } // 終了時の状態（360度）
+            ],
+            // タイミングに関する設定
+            {
+                fill: 'backwards', // 再生前後の状態（再生前、開始時の状態を適用）
+                duration: 10000, // 再生時間（1000ミリ秒）
+            },
+        );
+    });
+</script>
+
+</html>

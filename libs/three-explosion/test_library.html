@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+
+<!--
+neko_editorのthree.jsを使用するため desktop で web server を起動する。
+-->
+
+<head>
+    <title>Complete Standalone Explosion</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">Click to explode! (No CDN needed)</div>
+    <script async src="https://ga.jspm.io/npm:es-module-shims@1.8.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "../../../neko_editor/libs/three.js-master.r176/build/three.module.js"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { libQuarks } from './dist/explosion-bundle.js';
+
+        // Three.js と three.quarks が既にバンドル済み
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xaaaaaa);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // ライト
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+
+        // 爆発システム（グローバルに公開済み）
+        const quarks = new libQuarks(scene);
+
+        // キューブ
+        const cube = new THREE.Mesh(
+            new THREE.BoxGeometry(1, 1, 1),
+            new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+        );
+        scene.add(cube);
+        camera.position.z = 5;
+
+        let currentCube = cube;
+
+        // クリックで爆発
+        renderer.domElement.addEventListener('click', () => {
+            if (currentCube) {
+                quarks.explodeObject(currentCube);
+                currentCube = null;
+
+                // 3秒後に新しいキューブ
+                setTimeout(() => {
+                    currentCube = new THREE.Mesh(
+                        new THREE.BoxGeometry(1, 1, 1),
+                        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+                    );
+                    scene.add(currentCube);
+                }, 3000);
+            }
+        });
+
+        // アニメーション
+        function animate() {
+            requestAnimationFrame(animate);
+            quarks.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+
+</html>

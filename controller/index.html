@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+
+<!--
+-->
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!--
+        html, bodyの高さを100%にする方法（iPhoneのアドレスバーが見えたり消えたりするのに対応する）
+        https://coliss.com/articles/build-websites/operation/css/css-cover-the-entire-height-of-the-screen.html
+        bodyの高さを100%にすることにより、表示メニューのキャンセル等を画面下の領域でタップしても有効になるようにする。
+    -->
+    <style>
+        html {
+            height: -webkit-fill-available;
+        }
+
+        body {
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            margin: 0;
+        }
+
+        canvas {
+            border: solid;
+            border-width: thin;
+        }
+
+        .selected {
+            border: 4px solid #06834f;
+        }
+
+        .editing {
+            border: 4px dashed red;
+        }
+
+        canvas:not(.selected) {
+            border: 4px solid #ffffff;
+        }
+
+        #header {
+            height: 38px;
+            width: auto;
+        }
+    </style>
+
+    <!-- スマホのgesture認識用 http://hammerjs.github.io/ -->
+    <script src="../hammer.min.js"></script>
+
+</head>
+
+<body>
+    <div id="header"></div>
+    <div id="canvas_panel"></div>
+    <div id="no_camera_panel">
+        カメラがありません。カメラアプリが起動されると、ここに画像が表示されます。
+    </div>
+    <div id="console_panel"></div>
+</body>
+<script type="module">
+    // Arrayの最初の要素でオブジェクトを作成し、その要素に設定をしていく関数
+    Array.prototype.a2e = function () { return this.reduce((e, f) => { f(e); return e; }); }
+
+    const canvas_panel = document.getElementById("canvas_panel");
+
+    // https://lil-gui.georgealways.com/
+    import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.17/+esm";
+    import { lil_gui_lib } from "../lil_gui_lib.mjs";
+    await lil_gui_lib.init({ libs_backup_folder: "../libs_backup" });
+
+    const create_gui = () => {
+        const gui = new GUI();
+        lil_gui_lib.set(gui);
+        gui.close();
+        return gui;
+    }
+
+    const params = {
+        get_image_interval_ms: 3000,
+
+        // cloud runのwebsocketは切断されるときがあるので、以下の時間だけクローズ処理を待って、リトライがかかって再度オープンされた場合にはクローズ処理を行わない。
+        close_delay_timer_ms: 10000,
+
+        names: {
+            get_image_interval_ms: "画面更新間隔(ms)",
+            close_delay_timer_ms: "接続断のとき再接続を待つ時間(ms)",
+        },
+        onChanges: {
+            get_image_interval_ms: function (e) {
+                CommClient.send({ cmd: "set_image_delivery_params", to_id: "cameras", "interval_msec": params.get_image_interval_ms });
+            },
+        },
+        details: {
+            get_image_interval_ms: "映像を更新する間隔をミリ秒単位で指定します。変更するとすべてのカメラが更新されます。あまり早いと負荷がかかります。",
+        },
+    };
+
+
+    // import { CanvasData } from "../CanvasData.mjs";
+    // await CanvasData.import_modules();
+
+    // websocketのcamera appを保存する
+    // dict[id:dict[display_components]]
+    const camera_apps = {};
+    const close_delay_timers = {};
+
+    const get_current_app = () => {
+        return Object.values(camera_apps).filter(e => e.canvas.classList.contains("selected"))?.[0];
+    };
+    const get_editing_app = () => {
+        return Object.values(camera_apps).filter(e => e.canvas.classList.contains("editing"))?.[0];
+    };
+    const set_current_app = (app) => {
+        const app0 = get_current_app();
+        if (app0 === app) {
+            return;
+        }
+
+        const app0_closeds = app0 !== undefined ? [app0.gui._closed, ...app0.gui.foldersRecursive().map(e => e._closed)] : undefined;
+        app0?.gui.hide();
+        app0?.canvas.classList.remove("selected");
+
+        // Array.from(canvas_panel.children).forEach(e => e.classList.remove("selected"));
+        app.canvas.classList.add("selected");
+        if (app0_closeds === undefined) {
+            app.gui.open(!no_camera_gui._closed);
+        } else {
+            [app.gui, ...app.gui.foldersRecursive()].forEach((e, i) => e.open(!app0_closeds[i]))
+        }
+        app.gui.show();
+    };
+
+    // cameraアプリが接続されていないときのgui
+    const no_camera_gui = [
+        create_gui(),
+        ei => ei.add_all({ params: CommClient.params, folder: ei.addFolder("websocket local status") }),
+        ei => ei.add_all({ params: params, folder: ei.addFolder("全カメラ共通パラメータ") }),
+    ].a2e();
+    const update_no_camera_panel = () => {
+        const has_camera = Object.keys(camera_apps).length !== 0;
+        document.getElementById("no_camera_panel").style.setProperty("display", has_camera ? "none" : "block");
+        no_camera_gui.show(!has_camera);
+        if (has_camera === false) {
+            const console_panel = document.getElementById("console_panel");
+            while (console_panel.firstChild) {
+                console_panel.removeChild(console_panel.firstChild);
+            }
+        }
+    };
+    update_no_camera_panel();
+
+    // camera app を管理するデータの作成
+    const create_app = (msg) => {
+        return ({
+            id: msg.from_id,
+            type: msg.type,
+            params: msg.params,
+            canvas: [
+                document.createElement("canvas"),
+                e => e.id = msg.from_id,
+                e => canvas_panel.appendChild(e),
+            ].a2e(),
+            image: undefined,
+            draw_annotations: undefined,
+            gui: [
+                create_gui(),
+                e => e.onChange(ei => {
+                    if (ei.object.module_name !== undefined) {
+                        CommClient.send({
+                            cmd: "set_params",
+                            to_id: msg.from_id,
+                            module_name: ei.object.module_name,
+                            values: { [ei.property]: ei.value },
+                            // property: ev.property, value: ev.value ,
+                        });
+                    }
+                }),
+                e => msg.params.forEach(p => { e.add_all({ params: p, folder: e.addFolder(p.module_name), enable_onchange: false }) }),
+                e => e.add_all({ params: CommClient.params, folder: e.addFolder("websocket local status") }),
+                e => e.add_all({ params: params, folder: e.addFolder("全カメラ共通パラメータ") })
+            ].a2e(),
+            closed: function () {
+                // this -> camera_appsのclosedしたidのオブジェクト
+                const closed_app = this;
+                if (closed_app.gui._hidden === false && Object.keys(camera_apps).length >= 2) {
+                    // 削除されたcamera appが選択状態にある場合、後ろのcanvasを選択状態に変更する。
+                    const to_delete_i = Array.from(canvas_panel.children).findIndex(e => e === closed_app.canvas);
+                    const to_select_i = to_delete_i + (to_delete_i == Object.keys(camera_apps).length - 1 ? -1 : 1);
+                    const to_select_canvas = Array.from(canvas_panel.children)[to_select_i];
+                    const to_select_ap = Object.values(camera_apps).filter(e => e.canvas === to_select_canvas)[0];
+                    set_current_app(camera_apps[to_select_ap.id])
+                }
+                closed_app.gui.destroy();
+                canvas_panel.removeChild(closed_app.canvas);
+                delete camera_apps[closed_app.id];
+                update_no_camera_panel();
+            },
+            set_image_delivery_params_status: CommClient.send({ cmd: "set_image_delivery_params", to_id: msg.from_id, "interval_msec": params.get_image_interval_ms }),
+        });
+    };
+
+    import { CommClient } from "../CommClient.mjs";
+    CommClient.init(`controller_${Date.now()}`, {
+        text: msg => {
+            console.log(msg.data);
+        },
+        server_cmd: msg => {
+            ({
+                opened: e => {
+                    CommClient.send({ cmd: "set_type", type: "controller", data: "opened" });
+                    CommClient.send({ cmd: "get_type", to_id: "cameras" });
+                },
+            })[msg.type]?.();
+        },
+        set_type: msg => {
+            if (msg.type !== "camera") {
+                return;
+            }
+            ({
+                opened: () => {
+                    clearTimeout(close_delay_timers[msg.from_id]);
+                    delete close_delay_timers[msg.from_id];
+                    camera_apps[msg.from_id] = camera_apps[msg.from_id] ?? create_app(msg);
+                    set_current_app(camera_apps[msg.from_id]);
+                    update_no_camera_panel();
+                },
+                closed: () => {
+                    clearTimeout(close_delay_timers[msg.from_id]);
+                    close_delay_timers[msg.from_id] = setTimeout(() => {
+                        camera_apps[msg.from_id]?.closed();
+                    }, params.close_delay_timer_ms);
+                },
+            })[msg.data]?.();
+        },
+        image: msg => {
+            const app = camera_apps[msg.from_id];
+            if (app === undefined) {
+                return;
+            }
+            [app.canvas.width, app.canvas.height] = msg.wh;
+            const img = new Image();
+            img.src = msg.data;
+            img.onload = () => {
+                app.image = img;
+            };
+        },
+        set_params: msg => {
+            const app = camera_apps[msg.from_id];
+            Object.assign(app.params.filter(p => p.module_name === msg.module_name)[0], msg.values);
+            Object.keys(msg.values).forEach(k => {
+                app.gui.controllersRecursive().filter(ei => ei.object.module_name === msg.module_name && ei.property === k).at(0)?.updateDisplay();
+            });
+        },
+        get_type: msg => {
+            CommClient.send({ cmd: "set_type", type: "controller", data: "opened" });
+        },
+    }, () => {
+        Object.keys(camera_apps).forEach(e => {
+            camera_apps[e].gui.destroy();
+            canvas_panel.removeChild(camera_apps[e].canvas);
+            delete camera_apps[e];
+        });
+        update_no_camera_panel();
+    });
+
+    import { CanvasRegion } from "../CanvasRegion.mjs";
+    CanvasRegion.params.operate_region = false;
+
+    canvas_panel.addEventListener("click", async e => {
+        if (e.target.tagName.toLowerCase() === "canvas") {
+            const canvas = e.target;
+            set_current_app(Object.values(camera_apps).filter(e => e.canvas === canvas)[0]);
+        }
+    });
+    (new Hammer(canvas_panel)).on("press", e => {
+        console.log("pressed", e);
+        if (e.target.classList.contains("editing") === false) {
+            e.target.classList.toggle("editing");
+        }
+    });
+    (new Hammer(canvas_panel)).on("pressup", e => {
+        console.log("press upped", e);
+        if (e.target.classList.contains("editing") === true) {
+            e.srcEvent.stopPropagation();
+            // CanvasRegionのイベントハンドラは、このタップ終了時には処理をしないように
+            // 次のタイミングでaddEventListenerする。上記のstopPropagationではこれができなかった。
+            // 2022.10.07
+            setTimeout(() => {
+                CanvasRegion.init(get_current_app().canvas, false);
+                CanvasRegion.load(get_current_app().params.filter(e => e.module_name === "CanvasRegion")[0]?.points_str);
+                CanvasRegion.operate_region(true);
+
+            }, 0);
+        }
+    });
+    (new Hammer(document.body)).on("tap", e => {
+        // console.log("body clicked", e);
+
+        // rgbのconsoleへの出力
+        const app = Object.values(camera_apps).filter(app => app.canvas === e.target)[0];
+        const pt = [e.srcEvent.offsetX, e.srcEvent.offsetY].map(Math.round);
+        if (app !== undefined && pt[0] >= 0 && pt[0] < app.canvas.width && pt[1] >= 0 && pt[1] < app.canvas.height) {
+
+            const console_canvas_wh = [50, 50];
+            const console_canvas = document.getElementById("console_canvas")
+                || document.getElementById("console_panel").appendChild([
+                    document.createElement("canvas"),
+                    e => e.id = "console_canvas",
+                    e => { e.width = console_canvas_wh[0]; e.height = console_canvas_wh[1]; },
+                ].a2e());
+            const console_canvas_ctx = console_canvas.getContext("2d", { willReadFrequently: true });
+
+            const console_text = document.getElementById("console_text")
+                || document.getElementById("console_panel").appendChild([
+                    document.createElement("span"),
+                    e => e.id = "console_text",
+                ].a2e());
+
+            const ctx = app.canvas.getContext("2d", { willReadFrequently: true });
+            const rgba = ctx.getImageData(...pt, 1, 1).data;
+
+            app.draw_annotations = () => {
+                ctx.strokeStyle = "green";
+                ctx.strokeRect(...pt.map(e => e - 2), 4, 4);
+
+                console_text.innerText = `rgba(${rgba.slice(0, 3)},${rgba[3] / 255})`;
+
+                console_canvas_ctx.fillStyle = console_text.innerText;
+                console_canvas_ctx.fillRect(0, 0, ...console_canvas_wh);
+
+            }
+        }
+
+        if (e.target.classList.contains("editing") === false) {
+            const app = get_editing_app();
+            if (app !== undefined) {
+                // app.params.filter(e=>e.module_name==="CanvasRegion")[0].points_str = CanvasRegion.points_str();
+                app.gui.controllersRecursive().filter(c => c.object.module_name === "CanvasRegion" && c.property === "points_str")[0]?.setValue(CanvasRegion.points_str());
+            }
+            CanvasRegion.init(undefined, false);
+            CanvasRegion.operate_region(false);
+            Array.from(canvas_panel.children).forEach(e => {
+                e.classList.remove("editing");
+            });
+        }
+    });
+    // 長押しで右クリックになるデフォルト動作を削除する。
+    document.getElementsByTagName("body")[0].addEventListener("contextmenu", e => {
+        e.preventDefault();
+    });
+
+    // 編集作業中のcanvasを取得する。ない場合はundefinedが返る。
+    const get_editing_canvas = () => {
+        return Array.from(canvas_panel.children).filter(e => e.classList.contains("editing"))?.[0];
+    };
+
+
+
+    let prev_tm = Date.now();
+    const render = async () => {
+
+        const tm = Date.now();
+        const dt = tm - prev_tm;
+        // console.log(`fps=${1000/dt}`);
+
+        Object.values(camera_apps).filter(app => app.image !== undefined).forEach(app => {
+            const ctx = app.canvas.getContext("2d", { willReadFrequently: true });
+            ctx.drawImage(app.image, 0, 0);
+            if (app === get_editing_app()) {
+                ctx.fillStyle = "rgba(0,0,0,0.2)";
+                ctx.fillRect(0, 0, app.canvas.width, app.canvas.height);
+            }
+            app.draw_annotations?.();
+        });
+        CanvasRegion.output(get_editing_app()?.canvas.getContext("2d"));
+
+
+        prev_tm = tm;
+        requestAnimationFrame(render);
+    };
+
+    requestAnimationFrame(render);
+</script>
+
+</html>

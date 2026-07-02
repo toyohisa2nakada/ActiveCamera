@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <ul>
+        <li>CanvasScreenPainter_akaze.mjsからのカメラ画像の中心位置がwebsocketで送られてくると、画像が表示されてその位置が緑色で示される。</li>
+        <li>CanvasScreenPainter_akaze.mjsでは、akaze_fruits.jpgを予め読み込んでおき、カメラ撮影画像との特徴点の一致からカメラ画像から固定のakaze_fruits.jpgへのアフィン変換行列を求める。</li>
+        <li>そしてカメラの中心位置にある点が、固定のakaze_fruits.jpgのどの位置にあるのかを計算し、websocketで通知する。</li>
+        <li>このHTMLではその位置を受信してakaze_fruits.jpgの上に描画する。</li>
+        <li>websocketはActiveCamera/CommClient.mjsをCanvasScreenPainter_akaze.mjsの中から使用している。この使い方はActiveCameraの正規のやり方ではないので、CanvasScreenPainter_akaze.mjsを使用したときのActiveCamera本来のWebSocket機能は失われると思われる。</li>
+    </ul>
+</body>
+
+<script type="module">
+    const load_script = (fname) => {
+        return new Promise((resolve, reject) => {
+            const sc = document.createElement("script");
+            sc.type = "text/javascript";
+            sc.src = fname;
+            sc.onload = () => resolve();
+            sc.onerror = (e) => reject(e);
+            const s = document.getElementsByTagName("script")[0];
+            s.parentNode.insertBefore(sc, s);
+        });
+    };
+
+    const comm_init = async ({ handler }) => {
+        const comm_client = (await import("../../CommClient.mjs")).CommClient;
+        comm_client.params.avaiable = true;
+        comm_client.init(`akaze_receiver`, {
+            server_cmd: e => {
+                console.log(e);
+                if (e.type === "opened") {
+                    comm_client.send({ cmd: "set_type", type: "camera", data: "opened" });
+                }
+            },
+            text: e => {
+                handler(e);
+            },
+        });
+        return comm_client;
+    }
+
+    // opencv.jsのロード, 画像ファイル(filename)の読み込み(blob->cv.imread), アスペクト比を保持して横640の画像にリサイズ
+    // 戻り値: imageData
+    const image_init = async ({ filename, canvas_elem }) => {
+        const webcamera_path = "../../webcamera/";
+        if (typeof cv === "undefined") {
+            await load_script(`${webcamera_path}opencv.4.9.0.js`);
+            await new Promise(resolve => {
+                cv["onRuntimeInitialized"] = () => { resolve(); };
+            });
+        }
+
+        // 横幅はCanvasScreenPainter_akazeの方に合わせて640固定
+        // 縦は画像のアスペクト比を維持するように計算する。
+        const wh = [640, -1];
+
+        const blob = await (await fetch(filename)).blob();
+        const img = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = URL.createObjectURL(blob);
+        });
+        console.log(blob, img);
+
+        const to_delete = [];
+        const raw0 = cv.imread(img);
+
+        const aspect_ratio = raw0.rows / raw0.cols;
+        wh[1] = Math.round(wh[0] * aspect_ratio);
+
+        to_delete.push(raw0);
+        const raw1 = new cv.Mat();
+        to_delete.push(raw1);
+        cv.resize(raw0, raw1, new cv.Size(...wh));
+
+        canvas_elem.width = raw1.cols;
+        canvas_elem.height = raw1.rows;
+        const imageData = new ImageData(new Uint8ClampedArray(raw1.data), raw1.cols, raw1.rows);
+        to_delete.forEach(e => e.delete());
+
+        return imageData;
+    }
+
+    const canvas_elem = document.getElementById("canvas");
+    const canvas_ctx = canvas_elem.getContext("2d", { willReadFrequently: true })
+    const imageData = await image_init({
+        filename: "akaze_fruits.jpg",
+        canvas_elem,
+        canvas_ctx,
+    });
+
+    const circle_radius = 10;
+    canvas_ctx.fillStyle = "rgba(0,255,0,1)";
+    comm_init({
+        handler: e => {
+            const p = JSON.parse(e.data);
+            console.log(p);
+
+
+            canvas_ctx.putImageData(imageData, 0, 0);
+
+
+            canvas_ctx.beginPath();
+            canvas_ctx.arc(...p, circle_radius, 0, 2 * Math.PI);
+            canvas_ctx.fill();
+        },
+    });
+
+</script>
+
+</html>

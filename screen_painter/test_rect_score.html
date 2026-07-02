@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+
+</head>
+
+<body>
+    <canvas id="canvas" width="512px" height="512px"></canvas>
+    <pre id="rect_score_panel"></pre>
+</body>
+
+<script type="module">
+
+    const canvas_elem = document.getElementById("canvas");
+    const ctx = canvas_elem.getContext("2d");
+    const canvas_rect = canvas_elem.getBoundingClientRect();
+    const canvas_wh = [canvas_rect.width, canvas_rect.height];
+
+    const rect_score_panel_elem = document.getElementById("rect_score_panel");
+
+    import { CanvasScreenPainter } from "./CanvasScreenPainter.mjs";
+    const { rect_score, sort_points } = CanvasScreenPainter._utils;
+
+
+    const points = [...Array(4).keys()].map(i => {
+        const x = Number(Math.trunc(i / 2) ^ (i % 2));
+        const y = Math.trunc(i / 2);
+        return [100 + 200 * x, 100 + 200 * y];
+    });
+    // console.log(points);
+    let selecting = -1;
+
+    // ポイントのサイズ
+    const csz = 10;
+
+    // 距離の計算
+    const dis = (p0, p1) =>
+        Math.sqrt(Math.pow(p0[0] - p1[0], 2) + Math.pow(p0[1] - p1[1], 2));
+
+
+    canvas_elem.addEventListener("pointerdown", ev => {
+        console.log(ev.offsetX, ev.offsetY)
+        const p1 = [ev.offsetX, ev.offsetY];
+        const pi = points.map((p, i) => [p, i]).filter(pi => dis(pi[0], p1) < csz)[0];
+        if (pi !== undefined) {
+            selecting = pi[1];
+        }
+    });
+    canvas_elem.addEventListener("pointerup", ev => {
+        selecting = -1;
+    });
+    canvas_elem.addEventListener("pointermove", ev => {
+        const p = points[selecting];
+        if (p !== undefined) {
+            p[0] = ev.offsetX;
+            p[1] = ev.offsetY;
+        }
+    });
+
+    const formatter = (str0) => {
+        let str1 = "";
+        let indent = 0;
+        const put_indent = () => [...Array(indent).keys()].map(_ => " ");
+        for (let i = 0; i < str0.length; i += 1) {
+            const char = str0[i];
+            if (char === "{") {
+                indent += 1;
+                str1 += char + "\n" + put_indent();
+            } else if (char === ",") {
+                str1 += char + "\n" + put_indent();
+            } else if (char === "}") {
+                indent -= 1;
+                str1 += "\n" + char;
+            } else {
+                str1 += char;
+            }
+        }
+        return str1;
+    }
+
+    const render = () => {
+        ctx.clearRect(0, 0, ...canvas_wh);
+
+        points.forEach((p, i) => {
+            ctx.fillStyle = i === selecting ? "red" : "black";
+            ctx.beginPath();
+            ctx.arc(...p, csz, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+
+        ctx.beginPath();
+        ctx.moveTo(...points[0]);
+        points.slice(1).forEach(p => ctx.lineTo(...p));
+        ctx.closePath();
+        ctx.stroke();
+
+        const str = JSON.stringify(rect_score({ points: sort_points(points) }));
+        rect_score_panel_elem.textContent = `rect score\n${formatter(str)}}`;
+
+        requestAnimationFrame(render);
+    };
+    requestAnimationFrame(render);
+</script>
+
+</html>
