@@ -1,6 +1,9 @@
 docs/
 libs/three.js_libs/
-libs_backup/
+
+libs_backup/*/
+!libs_backup/lil_gui.backup/
+
 object_detection_models/
 release/
 screen_painter/*/
