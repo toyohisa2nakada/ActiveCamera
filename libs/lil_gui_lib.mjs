@@ -6,7 +6,7 @@ lil_gui (https://lil-gui.georgealways.com/)
 */
 export const lil_gui_lib = {
     init: async function ({ libs_backup_folder } = {}) {
-        libs_backup_folder ??= "libs_backup";
+        libs_backup_folder ??= "../libs_backup";
 
         // tippyのスタイルをここで定義する。
         // https://atomiks.github.io/tippyjs/v6/themes/
