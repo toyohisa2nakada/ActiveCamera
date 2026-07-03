@@ -22,7 +22,7 @@ const collectionName = 'webrtc_sdp_collection';
 
 // ログ出力関数
 function log(message) {
-    // console.log(message);
+    console.log(message);
 }
 
 /**
